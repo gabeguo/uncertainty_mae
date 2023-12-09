@@ -121,14 +121,15 @@ def main(args):
 
     # simple augmentation
     transform_train = transforms.Compose([
+            transforms.Grayscale(num_output_channels=3),
             transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
-    dataset_train = torchvision.datasets.MNIST(root=args.data_path, train=True, download=True, 
-        target_transform=transform_train)
-    #dataset_train = datasets.ImageFolder(os.path.join(args.data_path, 'train'), transform=transform_train)
-    print(dataset_train)
+            transforms.Normalize((0.1307,0.1307,0.1307), (0.3081,0.3081,0.3081))
+        ])
+    dataset_train = datasets.MNIST(args.data_path, train=True, download=True,
+                       transform=transform_train)
+    print(dataset_train[0][0].shape)
 
     if True:  # args.distributed:
         num_tasks = misc.get_world_size()
