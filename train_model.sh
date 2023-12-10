@@ -1,3 +1,3 @@
 python main_pretrain.py \
     --data_path /home/gabeguo/data \
-    --accum_iter 64 \
+    --accum_iter 1 \
