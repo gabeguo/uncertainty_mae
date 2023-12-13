@@ -137,7 +137,7 @@ def main(args):
             transforms.ToTensor(),
             transforms.Normalize((0.1307,0.1307,0.1307), (0.3081,0.3081,0.3081))
         ])
-    dataset_train = datasets.MNIST(args.data_path, train=True, download=True,
+    dataset_train = datasets.EMNIST(args.data_path, split='balanced', train=True, download=True,
                        transform=transform_train)
     print(dataset_train[0][0].shape)
 
