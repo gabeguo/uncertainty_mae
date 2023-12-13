@@ -120,10 +120,20 @@ def main(args):
     cudnn.benchmark = True
 
     # simple augmentation
+    # transform_train = transforms.Compose([
+    #         transforms.Grayscale(num_output_channels=3),
+    #         transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
+    #         transforms.RandomHorizontalFlip(),
+    #         transforms.ToTensor(),
+    #         transforms.Normalize((0.1307,0.1307,0.1307), (0.3081,0.3081,0.3081))
+    #     ])
     transform_train = transforms.Compose([
             transforms.Grayscale(num_output_channels=3),
-            transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
+            #transforms.RandomResizedCrop((224, 224), scale=(0.8, 1), interpolation=3),  # 3 is bicubic
             transforms.RandomHorizontalFlip(),
+            transforms.RandomAffine(degrees=(-30, 30), translate=(0.75, 0.75), 
+                                    scale=(0.8, 1.2), shear=(-30, 30), interpolation=3),
+            transforms.Resize((224, 224), interpolation=3),
             transforms.ToTensor(),
             transforms.Normalize((0.1307,0.1307,0.1307), (0.3081,0.3081,0.3081))
         ])
