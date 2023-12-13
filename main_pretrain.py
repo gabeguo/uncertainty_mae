@@ -128,15 +128,17 @@ def main(args):
     #         transforms.Normalize((0.1307,0.1307,0.1307), (0.3081,0.3081,0.3081))
     #     ])
     transform_train = transforms.Compose([
-            transforms.Grayscale(num_output_channels=3),
-            #transforms.RandomResizedCrop((224, 224), scale=(0.8, 1), interpolation=3),  # 3 is bicubic
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomAffine(degrees=(-30, 30), translate=(0.75, 0.75), 
-                                    scale=(0.8, 1.2), shear=(-30, 30), interpolation=3),
-            transforms.Resize((224, 224), interpolation=3),
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307,0.1307,0.1307), (0.3081,0.3081,0.3081))
-        ])
+        lambda img: transforms.functional.rotate(img, -90),
+        lambda img: transforms.functional.hflip(img),
+        transforms.Grayscale(num_output_channels=3),
+        #transforms.RandomResizedCrop((224, 224), scale=(0.8, 1), interpolation=3),  # 3 is bicubic
+        #transforms.RandomHorizontalFlip(),
+        transforms.RandomAffine(degrees=(-30, 30), translate=(0.5, 0.5), 
+                                scale=(0.8, 1.2), shear=(-15, 15), interpolation=3),
+        transforms.Resize((224, 224), interpolation=3),
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,0.1307,0.1307), (0.3081,0.3081,0.3081))
+    ])
     dataset_train = datasets.EMNIST(args.data_path, split='balanced', train=True, download=True,
                        transform=transform_train)
     print(dataset_train[0][0].shape)
