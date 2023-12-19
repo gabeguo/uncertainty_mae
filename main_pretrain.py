@@ -133,13 +133,13 @@ def main(args):
         transforms.Grayscale(num_output_channels=3),
         #transforms.RandomResizedCrop((224, 224), scale=(0.8, 1), interpolation=3),  # 3 is bicubic
         #transforms.RandomHorizontalFlip(),
-        transforms.RandomAffine(degrees=(-30, 30), translate=(0.5, 0.5), 
-                                scale=(0.8, 1.2), shear=(-15, 15), interpolation=3),
+        # transforms.RandomAffine(degrees=(-30, 30), translate=(0.5, 0.5), 
+        #                         scale=(0.8, 1.2), shear=(-15, 15), interpolation=3),
         transforms.Resize((224, 224), interpolation=3),
         transforms.ToTensor(),
         transforms.Normalize((0.1307,0.1307,0.1307), (0.3081,0.3081,0.3081))
     ])
-    dataset_train = datasets.EMNIST(args.data_path, split='balanced', train=True, download=True,
+    dataset_train = datasets.Omniglot(args.data_path, background=True, download=True,
                        transform=transform_train)
     print(dataset_train[0][0].shape)
 
