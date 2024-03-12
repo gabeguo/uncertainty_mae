@@ -120,27 +120,12 @@ def main(args):
     cudnn.benchmark = True
 
     # simple augmentation
-    # transform_train = transforms.Compose([
-    #         transforms.Grayscale(num_output_channels=3),
-    #         transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
-    #         transforms.RandomHorizontalFlip(),
-    #         transforms.ToTensor(),
-    #         transforms.Normalize((0.1307,0.1307,0.1307), (0.3081,0.3081,0.3081))
-    #     ])
     transform_train = transforms.Compose([
-        lambda img: transforms.functional.rotate(img, -90),
-        lambda img: transforms.functional.hflip(img),
-        transforms.Grayscale(num_output_channels=3),
-        #transforms.RandomResizedCrop((224, 224), scale=(0.8, 1), interpolation=3),  # 3 is bicubic
-        #transforms.RandomHorizontalFlip(),
-        # transforms.RandomAffine(degrees=(-30, 30), translate=(0.5, 0.5), 
-        #                         scale=(0.8, 1.2), shear=(-15, 15), interpolation=3),
-        transforms.Resize((224, 224), interpolation=3),
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,0.1307,0.1307), (0.3081,0.3081,0.3081))
-    ])
-    dataset_train = datasets.Omniglot(args.data_path, background=True, download=True,
-                       transform=transform_train)
+            transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+    dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train)
     print(dataset_train[0][0].shape)
 
     if True:  # args.distributed:
