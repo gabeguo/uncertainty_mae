@@ -139,8 +139,12 @@ def main(args):
             transforms.CenterCrop(224),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
-    dataset_train = datasets.ImageFolder(os.path.join(args.data_path, 'train'), transform=transform_train)
-    dataset_val = datasets.ImageFolder(os.path.join(args.data_path, 'val'), transform=transform_val)
+    # dataset_train = datasets.ImageFolder(os.path.join(args.data_path, 'train'), transform=transform_train)
+    # dataset_val = datasets.ImageFolder(os.path.join(args.data_path, 'val'), transform=transform_val)
+
+    dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train)
+    dataset_val = datasets.CIFAR100('../data', train=False, download=True, transform=transform_val)
+
     print(dataset_train)
     print(dataset_val)
 
@@ -219,6 +223,8 @@ def main(args):
 
     # for linear prob only
     # hack: revise model's head with BN
+    print(model.head.weight.size())
+    print(model.head.bias.size())
     model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
     # freeze all but the head
     for _, p in model.named_parameters():
