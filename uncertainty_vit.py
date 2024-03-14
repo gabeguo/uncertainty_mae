@@ -6,27 +6,29 @@ import torch.nn as nn
 class MultiHeadViT(nn.Module):
     """
     Creates ViT Encoder from pre-trained MAE backbone.
-    Backbone is frozen, but last few layers are copied and unfrozen,
+    Backbone is shared, but last few layers are copied and unfrozen,
     to use as the three heads.
     """
-    def __init__(self, backbone, num_unfrozen_layers=1, return_all_tokens=False):
+    def __init__(self, backbone, num_unshared_layers=1, freeze_backbone=False, return_all_tokens=False):
         super().__init__()
 
         assert isinstance(backbone, MaskedAutoencoderViT)
 
         self.backbone = backbone
-        self.num_unfrozen_layers = num_unfrozen_layers
+        self.num_unshared_layers = num_unshared_layers
+        self.freeze_backbone = freeze_backbone
         self.return_all_tokens = return_all_tokens
 
-        self.freeze_layers()
+        self.create_layers()
 
         return
     
-    def freeze_layers(self):
+    def create_layers(self):
         # Freeze backbone
-        for param in self.backbone.parameters():
-            param.requires_grad = False
-        # Make unfrozen heads
+        if self.freeze_backbone:
+            for param in self.backbone.parameters():
+                param.requires_grad = False
+        # Make divergent heads
         self.low_head = self.create_head()
         self.mid_head = self.create_head()
         self.high_head = self.create_head()
@@ -35,13 +37,13 @@ class MultiHeadViT(nn.Module):
 
     def create_head(self):
         """
-        Copies the last [self.num_unfrozen_layers] blocks + the norm layer of the backbone,
-        and makes unfrozen head.
+        Copies the last [self.num_unshared_layers] blocks + the norm layer of the backbone,
+        and makes unfrozen/unshared head.
         """
         print('creating head')
         # Copy from backbone
         copied_blocks = copy.deepcopy(self.backbone.blocks)      
-        unfrozen_blocks = copied_blocks[-self.num_unfrozen_layers:]
+        unfrozen_blocks = copied_blocks[-self.num_unshared_layers:]
         # norm (with learnable bias and scale)
         norm = copy.deepcopy(self.backbone.norm)
 
