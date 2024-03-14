@@ -6,7 +6,8 @@ import torch.nn as nn
 class MultiHeadViT(nn.Module):
     """
     Creates ViT Encoder from pre-trained MAE backbone.
-    Backbone is shared, but last few layers are copied and unfrozen,
+    Backbone is shared (and weights are backprop-able), 
+    but last few layers are copied and unfrozen,
     to use as the three heads.
     """
     def __init__(self, backbone, num_unshared_layers=1, freeze_backbone=False, return_all_tokens=False):
@@ -24,21 +25,22 @@ class MultiHeadViT(nn.Module):
         return
     
     def create_layers(self):
-        # Freeze backbone
-        if self.freeze_backbone:
-            for param in self.backbone.parameters():
-                param.requires_grad = False
         # Make divergent heads
         self.low_head = self.create_head()
         self.mid_head = self.create_head()
         self.high_head = self.create_head()
+
+        # Freeze backbone AFTER copying weights
+        if self.freeze_backbone:
+            for param in self.backbone.parameters():
+                param.requires_grad = False
 
         return
 
     def create_head(self):
         """
         Copies the last [self.num_unshared_layers] blocks + the norm layer of the backbone,
-        and makes unfrozen/unshared head.
+        and makes learnable/unshared head.
         """
         print('creating head')
         # Copy from backbone
@@ -46,15 +48,6 @@ class MultiHeadViT(nn.Module):
         unfrozen_blocks = copied_blocks[-self.num_unshared_layers:]
         # norm (with learnable bias and scale)
         norm = copy.deepcopy(self.backbone.norm)
-
-        # Unfreeze these layers
-        for blk in unfrozen_blocks:
-            for param in blk.parameters():
-                param.requires_grad = True
-            print('\tunfroze block')
-        for the_params in [norm.weight, norm.bias]:
-            for param in the_params:
-                param.requires_grad = True
 
         head = nn.Sequential(*unfrozen_blocks, norm)
 
@@ -75,15 +68,15 @@ class MultiHeadViT(nn.Module):
         x = x + self.backbone.pos_embed[:, 1:, :]
 
         # masking: length -> length * mask_ratio
-        x, mask, ids_restore = self.backbone.random_masking(x, 0)
+        x, mask, ids_restore = self.backbone.random_masking(x, mask_ratio=0)
 
         # append cls token
         cls_token = self.backbone.cls_token + self.backbone.pos_embed[:, :1, :]
         cls_tokens = cls_token.expand(x.shape[0], -1, -1)
         x = torch.cat((cls_tokens, x), dim=1)
 
-        # apply (frozen) Transformer blocks
-        for blk in self.backbone.blocks[:-self.num_unfrozen_layers]:
+        # apply (shared) Transformer blocks
+        for blk in self.backbone.blocks[:-self.num_unshared_layers]:
             x = blk(x)
         # apply (learnable) head blocks
         x_low = self.low_head(x)
@@ -107,9 +100,22 @@ if __name__ == "__main__":
     mae = mae_vit_base_patch16_dec512d8b()
     mae.load_state_dict(torch.load('/home/gabeguo/vae_mae/cifar100_train/checkpoint-399.pth')['model'])
 
-    model = MultiHeadViT(backbone=mae, num_unfrozen_layers=1, return_all_tokens=True)
+    model = MultiHeadViT(backbone=mae, num_unshared_layers=1, freeze_backbone=False, return_all_tokens=False)
 
     print(model)
 
     x = torch.rand(4, 3, 224, 224)
     print([item.shape for item in model(x)])
+
+    learnable_parameters = {x[0] for x in model.named_parameters() if x[1].requires_grad}
+    all_parameters = {x[0] for x in model.named_parameters()}
+
+    assert len([y1 for y1 in model.named_parameters()]) == len([y2 for y2 in model.parameters()])
+
+    non_learnable_parameters = all_parameters - learnable_parameters
+    assert all(['backbone.' in the_param for the_param in non_learnable_parameters])
+    print('non-learnable parameters:', non_learnable_parameters)
+    print('learnable parameters:', learnable_parameters)
+    
+    print('num learnable parameters:', len(learnable_parameters))
+    print('num parameters:', len(all_parameters))
