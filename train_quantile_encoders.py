@@ -12,6 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 import argparse
 from pathlib import Path
 from tqdm import tqdm
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 # Verified in Colab
 def quantile_loss(z_pred, z_gt, q):
@@ -60,8 +61,11 @@ def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
     opt = torch.optim.AdamW(student.parameters(), lr=args.lr, betas=(0.9, 0.95), weight_decay=args.weight_decay)
     print(opt)
 
+    scheduler = CosineAnnealingLR(opt, args.epochs, eta_min=args.min_lr)
+
     for epoch in range(args.epochs):
         print(f'epoch {epoch} out of {args.epochs}')
+        wandb.log({'lr':scheduler.get_last_lr()[0]}, step=epoch*len(dataloader))
         pbar = tqdm(total=len(dataloader))
         for idx, (img, label) in enumerate(dataloader):
             img = img.cuda()
@@ -88,6 +92,8 @@ def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
 
             pbar.set_postfix(loss=total_loss.item(), refresh=False)
             pbar.update(1)
+
+        scheduler.step()
     
     return student
     
@@ -131,9 +137,9 @@ def get_args_parser():
                         help='weight decay (default: 0.05)')
     parser.add_argument('--lr', type=float, default=None, metavar='LR',
                         help='learning rate (absolute lr)')
-    parser.add_argument('--blr', type=float, default=1e-3, metavar='LR',
+    parser.add_argument('--blr', type=float, default=1e-4, metavar='LR',
                         help='base learning rate: absolute_lr = base_lr * total_batch_size / 256')
-    parser.add_argument('--min_lr', type=float, default=0., metavar='LR',
+    parser.add_argument('--min_lr', type=float, default=1e-7, metavar='LR',
                         help='lower lr bound for cyclic schedulers that hit 0')
     # parser.add_argument('--warmup_epochs', type=int, default=40, metavar='N',
     #                     help='epochs to warmup LR')
