@@ -10,8 +10,13 @@ class MultiHeadViT(nn.Module):
     but last few layers are copied and unfrozen,
     to use as the three heads.
     """
-    def __init__(self, backbone, num_unshared_layers=1, freeze_backbone=False, return_all_tokens=False):
+    def __init__(self, backbone_path, num_unshared_layers=1, freeze_backbone=False, return_all_tokens=False):
         super().__init__()
+
+        self.backbone_path = backbone_path
+
+        backbone = mae_vit_base_patch16_dec512d8b()
+        backbone.load_state_dict(torch.load(backbone_path)['model'])
 
         assert isinstance(backbone, MaskedAutoencoderViT)
 
@@ -30,10 +35,11 @@ class MultiHeadViT(nn.Module):
         self.mid_head = self.create_head()
         self.high_head = self.create_head()
 
-        # Freeze backbone AFTER copying weights
+        # (Optionally) freeze backbone AFTER copying weights
         if self.freeze_backbone:
             for param in self.backbone.parameters():
                 param.requires_grad = False
+            print('froze backbone')
 
         return
 
@@ -56,7 +62,7 @@ class MultiHeadViT(nn.Module):
 
     def forward(self, x):
         """
-        Mostly lifted from models_mae, except:
+        Mostly lifted from models_mae forward_encoder, except:
         (1) Returns lower bound, point estimate, upper bound
         (2) Have option to return only cls token
         """
@@ -96,15 +102,59 @@ class MultiHeadViT(nn.Module):
         
         return the_outputs[0], the_outputs[1], the_outputs[2]
 
-if __name__ == "__main__":
-    mae = mae_vit_base_patch16_dec512d8b()
-    mae.load_state_dict(torch.load('/home/gabeguo/vae_mae/cifar100_train/checkpoint-399.pth')['model'])
+class TeacherViT(nn.Module):
+    """
+    Uses a frozen MAE encoder as the teacher backbone.
+    """
+    def __init__(self, backbone_path, return_all_tokens=False):
+        super().__init__()
 
-    model = MultiHeadViT(backbone=mae, num_unshared_layers=1, freeze_backbone=False, return_all_tokens=False)
+        self.backbone_path = backbone_path
+
+        backbone = mae_vit_base_patch16_dec512d8b()
+        backbone.load_state_dict(torch.load(backbone_path)['model'])
+        assert isinstance(backbone, MaskedAutoencoderViT)
+        self.backbone = backbone
+
+        # freeze backbone
+        backbone.eval()
+        for param in self.backbone.parameters():
+            param.requires_grad = False
+
+        self.return_all_tokens = return_all_tokens
+        return
+    
+    def forward(self, x):
+        B = x.shape[0]
+        with torch.no_grad():
+            x, _, _ = self.backbone.forward_encoder(x, mask_ratio=0)
+            assert x.shape == (B, 14*14+1, 768) or x.shape == (B, 16*16+1, 768)
+            if not self.return_all_tokens:
+                x = x[:,0] # cls token
+                assert x.shape == (B, 768)
+        return x
+
+
+
+
+if __name__ == "__main__":
+    backbone_path = '/home/gabeguo/vae_mae/cifar100_train/checkpoint-399.pth'
+
+    # dummy data
+    x = torch.rand(4, 3, 224, 224)
+
+    # create teacher
+    teacher = TeacherViT(backbone_path=backbone_path, return_all_tokens=False)
+    print(teacher(x).shape)
+    teacher_learnable_params = {item[0] for item in teacher.named_parameters() if item[1].requires_grad}
+    print('learnable teacher params:', len(teacher_learnable_params))
+
+    # create student
+    model = MultiHeadViT(backbone_path=backbone_path, 
+                         num_unshared_layers=1, freeze_backbone=False, return_all_tokens=False)
 
     print(model)
 
-    x = torch.rand(4, 3, 224, 224)
     print([item.shape for item in model(x)])
 
     learnable_parameters = {x[0] for x in model.named_parameters() if x[1].requires_grad}
@@ -114,8 +164,8 @@ if __name__ == "__main__":
 
     non_learnable_parameters = all_parameters - learnable_parameters
     assert all(['backbone.' in the_param for the_param in non_learnable_parameters])
-    print('non-learnable parameters:', non_learnable_parameters)
-    print('learnable parameters:', learnable_parameters)
+    # print('non-learnable parameters:', non_learnable_parameters)
+    # print('learnable parameters:', learnable_parameters)
     
     print('num learnable parameters:', len(learnable_parameters))
     print('num parameters:', len(all_parameters))
