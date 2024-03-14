@@ -94,7 +94,10 @@ def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
             pbar.update(1)
 
         scheduler.step()
-    
+        
+        if epoch % args.checkpoint_interval == 0:
+            torch.save(student.state_dict(), os.path.join(args.output_dir, f'multihead_vit_checkpoint-{epoch}.pt'))
+
     return student
     
 def get_args_parser():
@@ -155,6 +158,7 @@ def get_args_parser():
     parser.add_argument('--resume', default='',
                         help='resume from checkpoint')
     parser.add_argument('--log_interval', default=20, type=int, help='how many steps between log to wandb')
+    parser.add_argument('--checkpoint_interval', default=5, type=int, help='how many epochs between saving checkpoint weights')
 
     # Miscellaneous parameters
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
