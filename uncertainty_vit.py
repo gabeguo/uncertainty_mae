@@ -50,7 +50,8 @@ class MultiHeadViT(nn.Module):
         """
         print('creating head')
         # Copy from backbone
-        copied_blocks = copy.deepcopy(self.backbone.blocks)      
+        copied_blocks = copy.deepcopy(self.backbone.blocks)
+        assert self.num_unshared_layers <= len(copied_blocks)      
         unfrozen_blocks = copied_blocks[-self.num_unshared_layers:]
         # norm (with learnable bias and scale)
         norm = copy.deepcopy(self.backbone.norm)
