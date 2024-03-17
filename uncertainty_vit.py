@@ -159,6 +159,8 @@ class EncoderViT(nn.Module):
         """
         Lifted from models_mae.py, but masking is controllable
         """
+        B = x.shape[0]
+        
         # embed patches
         x = self.backbone.patch_embed(x)
 
@@ -178,7 +180,11 @@ class EncoderViT(nn.Module):
             x = blk(x)
         x = self.backbone.norm(x)
 
-        return x, mask, ids_restore
+        assert x.shape == (B, 14*14+1, 768) or x.shape == (B, 16*16+1, 768)
+        if not self.return_all_tokens:
+            x = x[:,0] # cls token
+            assert x.shape == (B, 768)
+        return x
     
     def random_masking(self, x, mask_ratio, noise):
         """
