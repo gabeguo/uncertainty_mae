@@ -66,9 +66,12 @@ def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
 
     wandb.watch(lower_encoder, log_freq=args.log_interval)
     wandb.watch(upper_encoder, log_freq=args.log_interval)
+    wandb.watch(median_encoder, log_freq=args.log_interval)
 
     # make optimizer
-    opt = torch.optim.AdamW(list(lower_encoder.parameters()) + list(upper_encoder.parameters()), 
+    opt = torch.optim.AdamW(list(lower_encoder.parameters())
+                            + list(upper_encoder.parameters())
+                            + list(median_encoder.parameters()), 
                             lr=args.lr, betas=(0.9, 0.95), weight_decay=args.weight_decay)
     print(opt)
 
