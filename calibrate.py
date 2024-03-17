@@ -7,22 +7,33 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from tqdm import tqdm
 
-def loss(img, scale_factor, point_estimator, lower_estimator, upper_estimator):
+def loss(args, img, scale_factor, point_estimator, lower_estimator, upper_estimator,
+         gt_model):
     assert isinstance(point_estimator, EncoderViT)
     assert isinstance(lower_estimator, EncoderViT)
     assert isinstance(upper_estimator, EncoderViT)
+    assert isinstance(gt_model, EncoderViT)
 
     img = img.cuda()
+
     point_estimator.cuda().eval()
     lower_estimator.cuda().eval()
     upper_estimator.cuda().eval()
+    gt_model.cuda().eval()
+
     with torch.autocast(device_type='cuda', dtype=torch.float16):
         with torch.no_grad():
+            z_gt = gt_model(img).detach()
+            mask_noise = gt_model.get_mask_noise(img).detach() # FIX NOISE
+
             # TODO: mask the data for lower and upper bounds (since they have uncertainty)? 
             # Possibly only need the masking in training quantile regression
-            z_point = point_estimator(img).detach()
-            z_lower = lower_estimator(img).detach()
-            z_upper = upper_estimator(img).detach()
+            z_point = point_estimator.forward_fixed_mask(img, 
+                            mask_ratio=args.mask_ratio, noise=mask_noise).detach()
+            z_lower = lower_estimator.forward_fixed_mask(img, 
+                            mask_ratio=args.mask_ratio, noise=mask_noise).detach()
+            z_upper = upper_estimator.forward_fixed_mask(img,
+                            mask_ratio=args.mask_ratio, noise=mask_noise).detach()
 
             assert len(z_point.shape) == 2
             assert z_point.shape == z_lower.shape == z_upper.shape
@@ -30,11 +41,13 @@ def loss(img, scale_factor, point_estimator, lower_estimator, upper_estimator):
             low = z_point - scale_factor * (z_point - z_lower)
             high = z_point + scale_factor * (z_upper - z_point)
 
-            # failures = (low > high).sum().item()
+            # failures = torch.logical_or(torch.logical_or(z_point < low, z_point > high), 
+            #                             low > high).sum().item()
+            # failures = (z_point < low).sum().item()
 
             # Thanks ChatGPT for vectorization!
-            # Creating a boolean mask where z_point is within [low, high]
-            success_mask = (z_point >= low) & (z_point <= high)
+            # Creating a boolean mask where z_gt is within [low, high]
+            success_mask = (z_gt >= low) & (z_gt <= high)
             # failed_components = torch.where(~success_mask)
             # i = failed_components[0][0]
             # j = failed_components[1][0]
@@ -54,7 +67,8 @@ def loss(img, scale_factor, point_estimator, lower_estimator, upper_estimator):
     return loss
 
 def calibrate(args, dataloader, 
-              point_estimator, lower_estimator, upper_estimator
+              point_estimator, lower_estimator, upper_estimator,
+              gt_model
     ):
     n = len(dataloader.dataset)
     scale_factor = args.max_scale_factor
@@ -67,9 +81,10 @@ def calibrate(args, dataloader,
         scale_factor = scale_factor - args.step_size
         ucb = np.sqrt(1 / (2 * n) * np.log(1 / args.error_rate))
         for i, (img, label) in enumerate(dataloader):
-            l_i = loss(img=img, scale_factor=scale_factor, 
+            l_i = loss(args, img=img, scale_factor=scale_factor, 
                        point_estimator=point_estimator, 
-                       lower_estimator=lower_estimator, upper_estimator=upper_estimator)
+                       lower_estimator=lower_estimator, upper_estimator=upper_estimator,
+                       gt_model=gt_model)
             ucb += l_i * label.shape[0] / n # scale loss by percentage of dataset it makes up
             pbar.update(1)
         assert ucb >= 0
@@ -98,8 +113,10 @@ def create_args():
                         default='/home/gabeguo/uncertainty_mae/cifar100_quantile/upper_encoder_mae.pt')
     parser.add_argument('--point_model_filepath', type=str,
                         default='/home/gabeguo/uncertainty_mae/cifar100_quantile/middle_encoder_mae.pt')
+    parser.add_argument('--gt_model_filepath', type=str,
+                        default='/home/gabeguo/uncertainty_mae/cifar100_train/checkpoint-399.pth')
     # mask percentage
-    parser.add_argument('--mask_ratio', type=float, default=0,
+    parser.add_argument('--mask_ratio', type=float, default=0.75,
                         help='Percent of image to mask in lower + upper bound creation (not used yet)')
     # path to data
     parser.add_argument('--data_path', default='../', type=str,
@@ -128,6 +145,7 @@ def main():
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
+    # TODO: better transform
     # TODO: use different component than train set
     transform_train = transforms.Compose([
             transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
@@ -147,9 +165,11 @@ def main():
     point_estimator = EncoderViT(backbone_path=args.point_model_filepath, freeze_backbone=True, return_all_tokens=False)
     upper_estimator = EncoderViT(backbone_path=args.upper_model_filepath, freeze_backbone=True, return_all_tokens=False)
     lower_estimator = EncoderViT(backbone_path=args.lower_model_filepath, freeze_backbone=True, return_all_tokens=False)
+    gt_model = EncoderViT(backbone_path=args.gt_model_filepath, freeze_backbone=True, return_all_tokens=False)
 
     scale_factor = calibrate(args=args, dataloader=data_loader_train, point_estimator=point_estimator,
-                             lower_estimator=lower_estimator, upper_estimator=upper_estimator)
+                             lower_estimator=lower_estimator, upper_estimator=upper_estimator,
+                             gt_model=gt_model)
     print(f'scale_factor = {scale_factor} @ risk = {args.risk_level}; error = {args.error_rate}')
     
     os.makedirs(args.output_dir, exist_ok=True)
