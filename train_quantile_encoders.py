@@ -86,9 +86,9 @@ def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
                     z_gt = teacher(img)
                     z_gt = z_gt.detach()
                     mask_noise = teacher.get_mask_noise(img).detach() # FIX NOISE
-                low_z = lower_encoder.forward_fixed_mask(img, mask_ratio=args.mask_ratio, noise=mask_noise)
-                high_z = upper_encoder.forward_fixed_mask(img, mask_ratio=args.mask_ratio, noise=mask_noise)
-                mid_z = median_encoder.forward_fixed_mask(img, mask_ratio=args.mask_ratio, noise=mask_noise)
+                low_z, _, _ = lower_encoder.forward_fixed_mask(img, mask_ratio=args.mask_ratio, noise=mask_noise)
+                high_z, _, _ = upper_encoder.forward_fixed_mask(img, mask_ratio=args.mask_ratio, noise=mask_noise)
+                mid_z, _, _ = median_encoder.forward_fixed_mask(img, mask_ratio=args.mask_ratio, noise=mask_noise)
                 # get losses
                 low_loss = quantile_loss(z_pred=low_z, z_gt=z_gt, q=args.lower)
                 high_loss = quantile_loss(z_pred=high_z, z_gt=z_gt, q=args.upper)
