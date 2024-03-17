@@ -102,7 +102,8 @@ def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
                 opt.zero_grad()
             if idx % args.log_interval == 0:
                 wandb.log({'total loss':total_loss, 
-                           'low loss': low_loss, 'high loss': high_loss},
+                           'low loss': low_loss, 'high loss': high_loss,
+                           'mid loss': mid_loss},
                            step=idx+epoch*len(dataloader))
 
             pbar.set_postfix(loss=total_loss.item(), refresh=False)
