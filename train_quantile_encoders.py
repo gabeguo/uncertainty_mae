@@ -13,6 +13,7 @@ import argparse
 from pathlib import Path
 from tqdm import tqdm
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.cuda.amp import autocast, GradScaler
 
 # Verified in Colab
 def quantile_loss(z_pred, z_gt, q):
@@ -66,27 +67,28 @@ def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
 
     scheduler = CosineAnnealingLR(opt, args.epochs, eta_min=args.min_lr)
 
+    scaler = GradScaler()
     for epoch in range(args.epochs):
         print(f'epoch {epoch} out of {args.epochs}')
         wandb.log({'lr':scheduler.get_last_lr()[0]}, step=epoch*len(dataloader))
         pbar = tqdm(total=len(dataloader))
         for idx, (img, label) in enumerate(dataloader):
             img = img.cuda()
-            with torch.no_grad():
-                z_gt = teacher(img)
-                z_gt = z_gt.detach()
-            low_z = lower_encoder(img)
-            high_z = upper_encoder(img)
-            # get losses
-            low_loss = quantile_loss(z_pred=low_z, z_gt=z_gt, q=args.lower)
-            high_loss = quantile_loss(z_pred=high_z, z_gt=z_gt, q=args.upper)
+            with torch.autocast(device_type='cuda', dtype=torch.float16):
+                with torch.no_grad():
+                    z_gt = teacher(img)
+                    z_gt = z_gt.detach()
+                low_z = lower_encoder(img)
+                high_z = upper_encoder(img)
+                # get losses
+                low_loss = quantile_loss(z_pred=low_z, z_gt=z_gt, q=args.lower)
+                high_loss = quantile_loss(z_pred=high_z, z_gt=z_gt, q=args.upper)
+                total_loss = (low_loss + high_loss) / args.accum_iter
             # backprop
-            total_loss = (low_loss + high_loss) / args.accum_iter
-            total_loss.backward()
+            scaler.scale(total_loss).backward()
             if (idx + 1) % args.accum_iter == 0:
-                # optimizer step
-                opt.step()
-                # clear grad
+                scaler.step(opt)
+                scaler.update()
                 opt.zero_grad()
             if idx % args.log_interval == 0:
                 wandb.log({'total loss':total_loss, 
