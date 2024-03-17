@@ -160,7 +160,7 @@ def get_args_parser():
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--resume', default='',
                         help='resume from checkpoint')
-    parser.add_argument('--log_interval', default=20, type=int, help='how many steps between log to wandb')
+    parser.add_argument('--log_interval', default=50, type=int, help='how many steps between log to wandb')
     parser.add_argument('--checkpoint_interval', default=5, type=int, help='how many epochs between saving checkpoint weights')
 
     # Miscellaneous parameters

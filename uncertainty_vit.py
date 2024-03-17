@@ -135,12 +135,11 @@ class EncoderViT(nn.Module):
     
     def forward(self, x, mask_ratio=0):
         B = x.shape[0]
-        with torch.no_grad():
-            x, _, _ = self.backbone.forward_encoder(x, mask_ratio=mask_ratio)
-            assert x.shape == (B, 14*14+1, 768) or x.shape == (B, 16*16+1, 768)
-            if not self.return_all_tokens:
-                x = x[:,0] # cls token
-                assert x.shape == (B, 768)
+        x, _, _ = self.backbone.forward_encoder(x, mask_ratio=mask_ratio)
+        assert x.shape == (B, 14*14+1, 768) or x.shape == (B, 16*16+1, 768)
+        if not self.return_all_tokens:
+            x = x[:,0] # cls token
+            assert x.shape == (B, 768)
         return x
 
 
