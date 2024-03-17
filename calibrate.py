@@ -8,7 +8,8 @@ def loss(img, scale_factor, point_estimator, lower_estimator, upper_estimator):
     assert isinstance(upper_estimator, EncoderViT)
 
     with torch.no_grad():
-        # TODO: mask the data for lower and upper bounds (since they have uncertainty)
+        # TODO: mask the data for lower and upper bounds (since they have uncertainty)? 
+        # Possibly only need the masking in training quantile regression
         z_point = point_estimator(img).detach()
         z_lower = lower_estimator(img).detach()
         z_upper = upper_estimator(img).detach()

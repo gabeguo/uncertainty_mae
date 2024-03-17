@@ -34,6 +34,7 @@ def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
     # TODO: median?
     # TODO: need masking in lower and upper predictors, because masking is source of uncertainty, so 
     # this method doesn't really make sense if we have intervals on the full information image
+    # TODO: make sure to make masking some for lower and upper
     """
     (1) Use frozen MAE pretrained weights as teacher_encoder.
     (2) Initialize two MAEs with random weights, 
