@@ -103,32 +103,40 @@ class MultiHeadViT(nn.Module):
         
         return the_outputs[0], the_outputs[1], the_outputs[2]
 
-class TeacherViT(nn.Module):
+class EncoderViT(nn.Module):
     """
-    Uses a frozen MAE encoder as the teacher backbone.
+    Takes the encoder from the MAE.
+    Can initialize to pre-trained weights, if you like.
+    Can also freeze, if you like.
     """
-    def __init__(self, backbone_path, return_all_tokens=False):
+    def __init__(self, backbone_path=None, freeze_backbone=False, return_all_tokens=False):
         super().__init__()
 
         self.backbone_path = backbone_path
+        self.freeze_backbone = freeze_backbone
 
+        # create backbone
         backbone = mae_vit_base_patch16_dec512d8b()
-        backbone.load_state_dict(torch.load(backbone_path)['model'])
+        # optionally load backbone weights
+        if backbone_path is not None:
+            backbone.load_state_dict(torch.load(backbone_path)['model'])
         assert isinstance(backbone, MaskedAutoencoderViT)
         self.backbone = backbone
 
         # freeze backbone
-        backbone.eval()
-        for param in self.backbone.parameters():
-            param.requires_grad = False
+        if freeze_backbone:
+            backbone.eval()
+            for param in self.backbone.parameters():
+                param.requires_grad = False
 
+        # whether to return all tokens, or just the cls token.
         self.return_all_tokens = return_all_tokens
         return
     
-    def forward(self, x):
+    def forward(self, x, mask_ratio=0):
         B = x.shape[0]
         with torch.no_grad():
-            x, _, _ = self.backbone.forward_encoder(x, mask_ratio=0)
+            x, _, _ = self.backbone.forward_encoder(x, mask_ratio=mask_ratio)
             assert x.shape == (B, 14*14+1, 768) or x.shape == (B, 16*16+1, 768)
             if not self.return_all_tokens:
                 x = x[:,0] # cls token

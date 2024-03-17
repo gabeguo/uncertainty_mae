@@ -1,5 +1,5 @@
 import torch
-from uncertainty_vit import MultiHeadViT, TeacherViT
+from uncertainty_vit import EncoderViT
 from util.pos_embed import interpolate_pos_embed
 import torchvision.datasets as datasets
 import util.misc as misc
@@ -32,33 +32,36 @@ Strats:
 def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
     """
     (1) Use frozen MAE pretrained weights as teacher_encoder.
-    (2) Uncertainty-aware backbone is initialized from teacher_encoder.
-    (3) Use three different heads that share common uncertainty-aware backbone. 
-        Backprop with quantile regression with teacher's latent code (cls token) as target, jointly
-        through all three heads + backbone.
-    (4) Return the backbone, plus the three heads. Prob use median head's cls token as representation,
-        but can experiment with other two.
+    (2) Initialize two MAEs with random weights, 
+        and train them with pinball loss on the latent space
+        on the teacher_encoder target.
+    (3) Return the two MAEs.
     """
     assert args.lower <= args.upper
     assert 0 <= args.lower <= 1 and 0 <= args.upper <= 1
 
-    student = MultiHeadViT(backbone_path=pretrained_mae_weights, num_unshared_layers=args.num_unshared_layers,
-                           freeze_backbone=args.freeze_backbone, return_all_tokens=args.return_all_tokens).cuda()
-
     # ready to train
-    student.train()
-    learnable_student_params = {x[0] for x in student.named_parameters() if x[1].requires_grad}
-    all_student_params = {x[0] for x in student.named_parameters()}
-    print(f"{len(learnable_student_params)} out of {len(all_student_params)} learnable")
+    lower_encoder = EncoderViT(backbone_path=None,
+                               freeze_backbone=False,
+                               return_all_tokens=args.return_all_tokens).cuda()
+    lower_encoder.train()
+    upper_encoder = EncoderViT(backbone_path=None,
+                               freeze_backbone=False,
+                               return_all_tokens=args.return_all_tokens).cuda()
+    upper_encoder.train()
 
     # frozen teacher encoder
-    teacher = TeacherViT(backbone_path=pretrained_mae_weights, return_all_tokens=args.return_all_tokens).cuda()
+    teacher = EncoderViT(backbone_path=pretrained_mae_weights, 
+                         freeze_backbone=True,
+                         return_all_tokens=args.return_all_tokens).cuda()
     teacher.eval()
 
-    wandb.watch(student, log_freq=args.log_interval)
+    wandb.watch(lower_encoder, log_freq=args.log_interval)
+    wandb.watch(upper_encoder, log_freq=args.log_interval)
 
     # make optimizer
-    opt = torch.optim.AdamW(student.parameters(), lr=args.lr, betas=(0.9, 0.95), weight_decay=args.weight_decay)
+    opt = torch.optim.AdamW(list(lower_encoder.parameters()) + list(upper_encoder.parameters()), 
+                            lr=args.lr, betas=(0.9, 0.95), weight_decay=args.weight_decay)
     print(opt)
 
     scheduler = CosineAnnealingLR(opt, args.epochs, eta_min=args.min_lr)
@@ -72,13 +75,13 @@ def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
             with torch.no_grad():
                 z_gt = teacher(img)
                 z_gt = z_gt.detach()
-            low_z, mid_z, high_z = student(img)
+            low_z = lower_encoder(img)
+            high_z = upper_encoder(img)
             # get losses
             low_loss = quantile_loss(z_pred=low_z, z_gt=z_gt, q=args.lower)
             high_loss = quantile_loss(z_pred=high_z, z_gt=z_gt, q=args.upper)
-            mid_loss = quantile_loss(z_pred=mid_z, z_gt=z_gt, q=0.5)
             # backprop
-            total_loss = (low_loss + high_loss + mid_loss) / args.accum_iter
+            total_loss = (low_loss + high_loss) / args.accum_iter
             total_loss.backward()
             if (idx + 1) % args.accum_iter == 0:
                 # optimizer step
@@ -87,7 +90,7 @@ def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
                 opt.zero_grad()
             if idx % args.log_interval == 0:
                 wandb.log({'total loss':total_loss, 
-                           'low loss': low_loss, 'high loss': high_loss, 'mid loss': mid_loss},
+                           'low loss': low_loss, 'high loss': high_loss},
                            step=idx+epoch*len(dataloader))
 
             pbar.set_postfix(loss=total_loss.item(), refresh=False)
@@ -96,9 +99,10 @@ def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
         scheduler.step()
         
         if epoch % args.checkpoint_interval == 0:
-            torch.save(student.state_dict(), os.path.join(args.output_dir, f'multihead_vit_checkpoint-{epoch}.pt'))
+            torch.save(lower_encoder.backbone.state_dict(), os.path.join(args.output_dir, f'lower_bound_checkpoint-{epoch}.pt'))
+            torch.save(upper_encoder.backbone.state_dict(), os.path.join(args.output_dir, f'upper_bound_checkpoint-{epoch}.pt'))
 
-    return student
+    return lower_encoder, upper_encoder
     
 def get_args_parser():
     parser = argparse.ArgumentParser('MAE confidence intervals', add_help=False)
@@ -107,7 +111,6 @@ def get_args_parser():
     parser.add_argument('--pretrained_weights', default='/home/gabeguo/vae_mae/cifar100_train/checkpoint-399.pth',
                         type=str, help='The MAE pretrained weights')
     parser.add_argument('--num_unshared_layers', default=1, type=int, help='Number of transformer blocks that we can finetune for each head')
-    parser.add_argument('--freeze_backbone', action='store_true', help='Whether to freeze the backbone weights of the multi-head ViT')
     parser.add_argument('--return_all_tokens', action='store_true', help='Whether to return all the tokens, or just the cls token when training encoders')
 
     # Quantile regression parameters
@@ -239,9 +242,10 @@ def main(args):
 
     wandb.init(config=args)
 
-    student = train_latent_uncertainty(args, dataloader=data_loader_train, 
+    lower_encoder, upper_encoder = train_latent_uncertainty(args, dataloader=data_loader_train, 
                              pretrained_mae_weights=args.pretrained_weights) 
-    torch.save(student.state_dict(), os.path.join(args.output_dir, 'multihead_vit.pt'))
+    torch.save(lower_encoder.backbone.state_dict(), os.path.join(args.output_dir, 'lower_encoder_mae.pt'))
+    torch.save(upper_encoder.backbone.state_dict(), os.path.join(args.output_dir, 'upper_encoder_mae.pt'))
 
     
     return
