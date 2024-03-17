@@ -30,9 +30,15 @@ def loss(img, scale_factor, point_estimator, lower_estimator, upper_estimator):
             low = z_point - scale_factor * (z_point - z_lower)
             high = z_point + scale_factor * (z_upper - z_point)
 
+            # failures = (low > high).sum().item()
+
             # Thanks ChatGPT for vectorization!
             # Creating a boolean mask where z_point is within [low, high]
             success_mask = (z_point >= low) & (z_point <= high)
+            # failed_components = torch.where(~success_mask)
+            # i = failed_components[0][0]
+            # j = failed_components[1][0]
+            # print(f"[{low[i, j]:.2f}, {high[i, j]:.2f}]: {z_point[i, j]:.2f}")
             # Counting successes by summing over the boolean mask (True is treated as 1, False as 0)
             success_set_count = success_mask.sum().item()
             # Calculating total items
@@ -41,6 +47,9 @@ def loss(img, scale_factor, point_estimator, lower_estimator, upper_estimator):
             loss = 1 - success_set_count / total_items
 
             assert loss >= 0 and loss <= 1
+    # print(f'bad bounds: {failures/total_items}')
+
+    # print(loss)
 
     return loss
 
@@ -53,6 +62,7 @@ def calibrate(args, dataloader,
     print(f'num batches in dataloader: {len(dataloader)}')
     pbar = tqdm(total=(int(args.max_scale_factor / args.step_size) + 1) * len(dataloader), 
                 desc=f'Calibrating @ risk = {args.risk_level}; error = {args.error_rate}')
+    # TODO: switch to binary search to be faster
     while ucb <= args.risk_level:
         scale_factor = scale_factor - args.step_size
         ucb = np.sqrt(1 / (2 * n) * np.log(1 / args.error_rate))
@@ -87,7 +97,7 @@ def create_args():
     parser.add_argument('--upper_model_filepath', type=str,
                         default='/home/gabeguo/uncertainty_mae/cifar100_quantile/upper_encoder_mae.pt')
     parser.add_argument('--point_model_filepath', type=str,
-                        default='/home/gabeguo/uncertainty_mae/cifar100_train/checkpoint-399.pth')
+                        default='/home/gabeguo/uncertainty_mae/cifar100_quantile/middle_encoder_mae.pt')
     # mask percentage
     parser.add_argument('--mask_ratio', type=float, default=0,
                         help='Percent of image to mask in lower + upper bound creation (not used yet)')
