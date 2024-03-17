@@ -31,15 +31,14 @@ Strats:
 """
 
 def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
-    # TODO: median?
-    # TODO: need masking in lower and upper predictors, because masking is source of uncertainty, so 
-    # this method doesn't really make sense if we have intervals on the full information image
-    # TODO: make sure to make masking some for lower and upper
     """
-    (1) Use frozen MAE pretrained weights as teacher_encoder.
-    (2) Initialize two MAEs with random weights, 
+    (1) Use frozen MAE pretrained weights as teacher_encoder. 
+        This accepts only FULL images.
+    (2) Initialize three MAEs with random weights, 
         and train them with pinball loss on the latent space
-        on the teacher_encoder target.
+        on the teacher_encoder target. 
+        These accept only MASKED images, 
+        as that is source of uncertainty.
     (3) Return the two MAEs.
     """
     assert args.lower <= args.upper
@@ -54,6 +53,10 @@ def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
                                freeze_backbone=False,
                                return_all_tokens=args.return_all_tokens).cuda()
     upper_encoder.train()
+    median_encoder = EncoderViT(backbone_path=None,
+                               freeze_backbone=False,
+                               return_all_tokens=args.return_all_tokens).cuda()
+    median_encoder.train()
 
     # frozen teacher encoder
     teacher = EncoderViT(backbone_path=pretrained_mae_weights, 
@@ -82,12 +85,15 @@ def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
                 with torch.no_grad():
                     z_gt = teacher(img)
                     z_gt = z_gt.detach()
-                low_z = lower_encoder(img)
-                high_z = upper_encoder(img)
+                    mask_noise = teacher.get_mask_noise(img).detach() # FIX NOISE
+                low_z = lower_encoder.forward_fixed_mask(img, mask_ratio=args.mask_ratio, noise=mask_noise)
+                high_z = upper_encoder.forward_fixed_mask(img, mask_ratio=args.mask_ratio, noise=mask_noise)
+                mid_z = median_encoder.forward_fixed_mask(img, mask_ratio=args.mask_ratio, noise=mask_noise)
                 # get losses
                 low_loss = quantile_loss(z_pred=low_z, z_gt=z_gt, q=args.lower)
                 high_loss = quantile_loss(z_pred=high_z, z_gt=z_gt, q=args.upper)
-                total_loss = (low_loss + high_loss) / args.accum_iter
+                mid_loss = quantile_loss(z_pred=mid_z, z_gt=z_gt, q=0.5)
+                total_loss = (low_loss + high_loss + mid_loss) / args.accum_iter
             # backprop
             scaler.scale(total_loss).backward()
             if (idx + 1) % args.accum_iter == 0:
@@ -107,8 +113,9 @@ def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
         if epoch % args.checkpoint_interval == 0:
             torch.save(lower_encoder.backbone.state_dict(), os.path.join(args.output_dir, f'lower_bound_checkpoint-{epoch}.pt'))
             torch.save(upper_encoder.backbone.state_dict(), os.path.join(args.output_dir, f'upper_bound_checkpoint-{epoch}.pt'))
+            torch.save(median_encoder.backbone.state_dict(), os.path.join(args.output_dir, f'median_bound_checkpoint-{epoch}.pt'))
 
-    return lower_encoder, upper_encoder
+    return lower_encoder, median_encoder, upper_encoder
     
 def get_args_parser():
     parser = argparse.ArgumentParser('MAE confidence intervals', add_help=False)
@@ -136,12 +143,8 @@ def get_args_parser():
     # Model parameters
     # parser.add_argument('--model', default='mae_vit_large_patch16', type=str, metavar='MODEL',
     #                     help='Name of model to train')
-
-    # parser.add_argument('--input_size', default=224, type=int,
-    #                     help='images input size')
-
-    # parser.add_argument('--mask_ratio', default=0.75, type=float,
-    #                     help='Masking ratio (percentage of removed patches).')
+    parser.add_argument('--mask_ratio', default=0.75, type=float,
+                        help='Masking ratio (percentage of removed patches) in STUDENTS only.')
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
@@ -201,6 +204,7 @@ def main(args):
 
     cudnn.benchmark = True
 
+    # TODO: better transform
     # simple augmentation
     transform_train = transforms.Compose([
             transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
@@ -247,9 +251,10 @@ def main(args):
 
     wandb.init(config=args)
 
-    lower_encoder, upper_encoder = train_latent_uncertainty(args, dataloader=data_loader_train, 
+    lower_encoder, median_encoder, upper_encoder = train_latent_uncertainty(args, dataloader=data_loader_train, 
                              pretrained_mae_weights=args.pretrained_weights) 
     torch.save(lower_encoder.backbone.state_dict(), os.path.join(args.output_dir, 'lower_encoder_mae.pt'))
+    torch.save(median_encoder.backbone.state_dict(), os.path.join(args.output_dir, 'median_encoder_mae.pt'))
     torch.save(upper_encoder.backbone.state_dict(), os.path.join(args.output_dir, 'upper_encoder_mae.pt'))
 
     
@@ -261,17 +266,3 @@ if __name__ == "__main__":
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     main(args)
-
-        
-
-
-"""
-Alt ideas: 
-Latent:
-(1) Post-hoc: Train three different regressors:
-    disadvantage is that it's not clear which one to use for representation, and this may take too much compute.
-
-Real space:
-(1) Pixel uncertainty with three different decoders:
-    advantage is that all knowledge goes into encoder, but pixel space is not semantically meaningful
-"""
