@@ -119,7 +119,10 @@ class EncoderViT(nn.Module):
         backbone = mae_vit_base_patch16_dec512d8b()
         # optionally load backbone weights
         if backbone_path is not None:
-            backbone.load_state_dict(torch.load(backbone_path)['model'])
+            the_state_dict = torch.load(backbone_path)
+            if 'model' in the_state_dict:
+                the_state_dict = the_state_dict['model']
+            backbone.load_state_dict(the_state_dict)
         assert isinstance(backbone, MaskedAutoencoderViT)
         self.backbone = backbone
 
@@ -141,9 +144,35 @@ class EncoderViT(nn.Module):
             x = x[:,0] # cls token
             assert x.shape == (B, 768)
         return x
+    
+    def generate_masked(self, x, mask_ratio=0):
+        # embed patches
+        x = self.backbone.patch_embed(x)
 
+        # add pos embed w/o cls token
+        x = x + self.backbone.pos_embed[:, 1:, :]
 
+        # masking: length -> length * mask_ratio
+        x, mask, ids_restore = self.backbone.random_masking(x, mask_ratio)
 
+        return x, mask, ids_restore
+    
+    def apply_transformer_layers(self, x, mask, ids_restore):
+        """
+        self.apply_transformer_layers(*self.generate_masked(x, mask_ratio)) 
+        is equivalent to self.forward(x, mask_ratio)
+        """
+        # append cls token
+        cls_token = self.backbone.cls_token + self.backbone.pos_embed[:, :1, :]
+        cls_tokens = cls_token.expand(x.shape[0], -1, -1)
+        x = torch.cat((cls_tokens, x), dim=1)
+
+        # apply Transformer blocks
+        for blk in self.backbone.blocks:
+            x = blk(x)
+        x = self.backbone.norm(x)
+
+        return x, mask, ids_restore
 
 if __name__ == "__main__":
     backbone_path = '/home/gabeguo/vae_mae/cifar100_train/checkpoint-399.pth'
