@@ -110,7 +110,6 @@ def get_args_parser():
     # Fine-tuning parameters
     parser.add_argument('--pretrained_weights', default='/home/gabeguo/vae_mae/cifar100_train/checkpoint-399.pth',
                         type=str, help='The MAE pretrained weights')
-    parser.add_argument('--num_unshared_layers', default=1, type=int, help='Number of transformer blocks that we can finetune for each head')
     parser.add_argument('--return_all_tokens', action='store_true', help='Whether to return all the tokens, or just the cls token when training encoders')
 
     # Quantile regression parameters
