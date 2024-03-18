@@ -89,6 +89,12 @@ def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
                     z_gt = teacher(img)
                     z_gt = z_gt.detach()
                     mask_noise = teacher.get_mask_noise(img).detach() # FIX NOISE
+                    # TODO: bug check later
+                    if args.return_all_tokens:
+                        cls_token = z_gt[:,0].reshape(-1, 1, 768) # pull out the cls token
+                        regular_tokens = z_gt[:,1:,:] # masking only applies to non-cls tokens: REMOVE IT
+                        masked_gt, _, _ = teacher.random_masking(regular_tokens, mask_ratio=args.mask_ratio, noise=mask_noise)
+                        z_gt = torch.cat((cls_token, masked_gt), dim=1) # inverse: add back the cls token
                 low_z = lower_encoder.forward_fixed_mask(img, mask_ratio=args.mask_ratio, noise=mask_noise)
                 high_z = upper_encoder.forward_fixed_mask(img, mask_ratio=args.mask_ratio, noise=mask_noise)
                 mid_z = median_encoder.forward_fixed_mask(img, mask_ratio=args.mask_ratio, noise=mask_noise)
