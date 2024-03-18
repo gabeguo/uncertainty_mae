@@ -175,6 +175,8 @@ class EncoderViT(nn.Module):
         cls_tokens = cls_token.expand(x.shape[0], -1, -1)
         x = torch.cat((cls_tokens, x), dim=1)
 
+        L = x.shape[1]
+
         # apply Transformer blocks
         for blk in self.backbone.blocks:
             x = blk(x)
@@ -183,6 +185,8 @@ class EncoderViT(nn.Module):
         if not self.return_all_tokens:
             x = x[:,0] # cls token
             assert x.shape == (B, 768)
+        else:
+            assert x.shape == (B, L, 768)
         return x
     
     def random_masking(self, x, mask_ratio, noise):
