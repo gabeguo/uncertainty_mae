@@ -78,6 +78,7 @@ def calibrate(args, dataloader,
                 desc=f'Calibrating @ risk = {args.risk_level}; error = {args.error_rate}')
     # TODO: switch to binary search to be faster
     while ucb <= args.risk_level:
+        last_ucb = ucb
         scale_factor = scale_factor - args.step_size
         ucb = np.sqrt(1 / (2 * n) * np.log(1 / args.error_rate))
         for i, (img, label) in enumerate(dataloader):
@@ -86,10 +87,11 @@ def calibrate(args, dataloader,
                        lower_estimator=lower_estimator, upper_estimator=upper_estimator,
                        gt_model=gt_model)
             ucb += l_i * label.shape[0] / n # scale loss by percentage of dataset it makes up
+            pbar.set_postfix_str(f"scale_factor = {scale_factor}; ucb = {last_ucb:.3f}; loss = {l_i:.3f}")
             pbar.update(1)
         assert ucb >= 0
 
-        pbar.set_postfix_str(f"scale_factor = {scale_factor}; ucb = {ucb}")
+        #pbar.set_postfix_str(f"scale_factor = {scale_factor}; ucb = {ucb}")
     scale_factor = scale_factor + args.step_size # backtrack (loop ends on overshoot)
 
     return scale_factor
