@@ -45,15 +45,16 @@ def train_latent_uncertainty(args, dataloader, pretrained_mae_weights):
     assert 0 <= args.lower <= 1 and 0 <= args.upper <= 1
 
     # ready to train
-    lower_encoder = EncoderViT(backbone_path=None,
+    init_weights = pretrained_mae_weights if args.init_student_to_pretrained else None
+    lower_encoder = EncoderViT(backbone_path=init_weights,
                                freeze_backbone=False,
                                return_all_tokens=args.return_all_tokens).cuda()
     lower_encoder.train()
-    upper_encoder = EncoderViT(backbone_path=None,
+    upper_encoder = EncoderViT(backbone_path=init_weights,
                                freeze_backbone=False,
                                return_all_tokens=args.return_all_tokens).cuda()
     upper_encoder.train()
-    median_encoder = EncoderViT(backbone_path=None,
+    median_encoder = EncoderViT(backbone_path=init_weights,
                                freeze_backbone=False,
                                return_all_tokens=args.return_all_tokens).cuda()
     median_encoder.train()
@@ -134,6 +135,7 @@ def get_args_parser():
     parser.add_argument('--pretrained_weights', default='/home/gabeguo/vae_mae/cifar100_train/checkpoint-399.pth',
                         type=str, help='The MAE pretrained weights')
     parser.add_argument('--return_all_tokens', action='store_true', help='Whether to return all the tokens, or just the cls token when training encoders')
+    parser.add_argument('--init_student_to_pretrained', action='store_true', help='Whether to initialize the quantile regressors to pretrained weights')
 
     # Quantile regression parameters
     parser.add_argument('--lower', default=0.05, type=float, help='the lower quantile')
