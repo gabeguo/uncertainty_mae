@@ -2,6 +2,8 @@ from models_mae import MaskedAutoencoderViT, mae_vit_base_patch16_dec512d8b
 import copy
 import torch
 import torch.nn as nn
+from models_vit import VisionTransformer
+import numpy as np
 
 class MultiHeadViT(nn.Module):
     """
@@ -246,3 +248,45 @@ if __name__ == "__main__":
     
     print('num learnable parameters:', len(learnable_parameters))
     print('num parameters:', len(all_parameters))
+
+class ConfidenceIntervalViT(nn.Module):
+    def __init__(self, lower_model, middle_model, upper_model,
+                        interval_scale):
+        super().__init__()
+        assert isinstance(lower_model, VisionTransformer)
+        assert isinstance(middle_model, VisionTransformer)
+        assert isinstance(upper_model, VisionTransformer)
+        self.lower_model = lower_model
+        self.middle_model = middle_model
+        self.upper_model = upper_model
+        self.interval_scale = interval_scale
+
+        self.head = self.middle_model.head
+
+        self.is_point_estimator = False
+
+        return
+    
+    def forward(self, x):
+        if self.is_point_estimator:
+            return self.head(self.middle_model.forward_features(x))
+        # otherwise, sample from CI
+        z_lower = self.lower_model.forward_features(x)
+        z_point = self.middle_model.forward_features(x)
+        z_upper = self.upper_model.forward_features(x)
+
+        low = z_point - self.interval_scale * (z_point - z_lower)
+        high = z_point + self.interval_scale * (z_upper - z_point)
+
+        r = np.random.rand()
+
+        z_sample = r * low + (1 - r) * high
+
+        # TODO: not 100% sure if this is correct
+        output = self.head(z_sample)
+
+        return output
+    
+    def point_estimate_mode(self, is_point_estimator):
+        self.is_point_estimator = is_point_estimator
+        return
