@@ -278,7 +278,7 @@ class ConfidenceIntervalViT(nn.Module):
         low = z_point - self.interval_scale * (z_point - z_lower)
         high = z_point + self.interval_scale * (z_upper - z_point)
 
-        r = np.random.rand()
+        r = torch.rand_like(low)
 
         z_sample = r * low + (1 - r) * high
 
