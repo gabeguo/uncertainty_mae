@@ -37,6 +37,8 @@ from util.crop import RandomResizedCrop
 import models_vit
 
 from engine_finetune import train_one_epoch, evaluate
+import wandb
+from uncertainty_vit import ConfidenceIntervalViT
 
 
 def get_args_parser():
@@ -69,6 +71,14 @@ def get_args_parser():
     # * Finetuning params
     parser.add_argument('--finetune', default='',
                         help='finetune from checkpoint')
+    parser.add_argument('--lower_bound_model', default=None, type=str,
+                        help='path to lower bound model')
+    parser.add_argument('--point_bound_model', default=None, type=str,
+                        help='path to point estimate model')
+    parser.add_argument('--upper_bound_model', default=None, type=str,
+                        help='path to upper bound model')
+    parser.add_argument('--scale_factor_path', default=None, type=str,
+                        help='path to scale factor')
     parser.add_argument('--global_pool', action='store_true')
     parser.set_defaults(global_pool=False)
     parser.add_argument('--cls_token', action='store_false', dest='global_pool',
@@ -112,6 +122,55 @@ def get_args_parser():
 
     return parser
 
+def set_model(args, model, weight_path):
+    checkpoint = torch.load(weight_path, map_location='cpu')
+
+    print("Load pre-trained checkpoint from: %s" % weight_path)
+    if 'model' in checkpoint:
+        checkpoint_model = checkpoint['model']
+    else:
+        checkpoint_model = checkpoint
+    state_dict = model.state_dict()
+    for k in ['head.weight', 'head.bias']:
+        if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
+            print(f"Removing key {k} from pretrained checkpoint")
+            del checkpoint_model[k]
+
+    # interpolate position embedding
+    interpolate_pos_embed(model, checkpoint_model)
+
+    # load pre-trained model
+    msg = model.load_state_dict(checkpoint_model, strict=False)
+    print(msg)
+
+    if args.global_pool:
+        assert set(msg.missing_keys) == {'head.weight', 'head.bias', 'fc_norm.weight', 'fc_norm.bias'}
+    else:
+        assert set(msg.missing_keys) == {'head.weight', 'head.bias'}
+
+    # manually initialize fc layer: following MoCo v3
+    trunc_normal_(model.head.weight, std=0.01)
+
+    return model
+
+def set_head(model, device):
+    print(model.head.weight.size())
+    print(model.head.bias.size())
+    model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
+    # freeze all but the head
+    for _, p in model.named_parameters():
+        p.requires_grad = False
+    for _, p in model.head.named_parameters():
+        p.requires_grad = True
+
+    model.to(device)
+    return
+
+def create_model(args):
+    return models_vit.__dict__[args.model](
+        num_classes=args.nb_classes,
+        global_pool=args.global_pool,
+    )
 
 def main(args):
     misc.init_distributed_mode(args)
@@ -190,49 +249,40 @@ def main(args):
         drop_last=False
     )
 
-    model = models_vit.__dict__[args.model](
-        num_classes=args.nb_classes,
-        global_pool=args.global_pool,
-    )
+    use_uncertainty_encoder = (args.lower_bound_model is not None) \
+        and (args.upper_bound_model is not None) \
+        and (args.point_bound_model is not None)
+
+    if use_uncertainty_encoder:
+        lower_model = create_model(args)
+        middle_model = create_model(args)
+        upper_model = create_model(args)
+    else:
+        model = create_model(args)
 
     if args.finetune and not args.eval:
-        checkpoint = torch.load(args.finetune, map_location='cpu')
-
-        print("Load pre-trained checkpoint from: %s" % args.finetune)
-        checkpoint_model = checkpoint['model']
-        state_dict = model.state_dict()
-        for k in ['head.weight', 'head.bias']:
-            if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
-                print(f"Removing key {k} from pretrained checkpoint")
-                del checkpoint_model[k]
-
-        # interpolate position embedding
-        interpolate_pos_embed(model, checkpoint_model)
-
-        # load pre-trained model
-        msg = model.load_state_dict(checkpoint_model, strict=False)
-        print(msg)
-
-        if args.global_pool:
-            assert set(msg.missing_keys) == {'head.weight', 'head.bias', 'fc_norm.weight', 'fc_norm.bias'}
+        if use_uncertainty_encoder:
+            print('Confidence intervals')
+            lower_model = set_model(args, lower_model, args.lower_bound_model)
+            middle_model = set_model(args, middle_model, args.point_bound_model)
+            upper_model = set_model(args, upper_model, args.upper_bound_model)
         else:
-            assert set(msg.missing_keys) == {'head.weight', 'head.bias'}
-
-        # manually initialize fc layer: following MoCo v3
-        trunc_normal_(model.head.weight, std=0.01)
+            print('Single model')
+            model = set_model(args, model, args.finetune)
 
     # for linear prob only
     # hack: revise model's head with BN
-    print(model.head.weight.size())
-    print(model.head.bias.size())
-    model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
-    # freeze all but the head
-    for _, p in model.named_parameters():
-        p.requires_grad = False
-    for _, p in model.head.named_parameters():
-        p.requires_grad = True
-
-    model.to(device)
+    if use_uncertainty_encoder:
+        # TODO: implementation can be slightly more efficient
+        set_head(lower_model, device)
+        set_head(middle_model, device)
+        set_head(upper_model, device)
+        scale_factor = torch.load(args.scale_factor_path, map_location=args.device)
+        model = ConfidenceIntervalViT(lower_model=lower_model, middle_model=middle_model, upper_model=upper_model,
+                                      interval_scale=scale_factor)
+    else:
+        set_head(model, device)
+    model.cuda()
 
     model_without_ddp = model
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -270,6 +320,7 @@ def main(args):
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
         exit(0)
 
+    wandb.init(config=args, project='linprobe', name=f"{'CI' if use_uncertainty_encoder else 'regular'}")
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     max_accuracy = 0.0
@@ -302,6 +353,8 @@ def main(args):
                         **{f'test_{k}': v for k, v in test_stats.items()},
                         'epoch': epoch,
                         'n_parameters': n_parameters}
+        
+        wandb.log(log_stats)
 
         if args.output_dir and misc.is_main_process():
             if log_writer is not None:

@@ -1,8 +1,8 @@
 python main_linprobe.py \
     --model vit_base_patch16 \
-    --finetune /home/gabeguo/vae_mae/mae_visualize_vit_base.pth \
+    --finetune /home/gabeguo/uncertainty_mae/cifar100_train/checkpoint-399.pth \
     --data_path /home/gabeguo/data/cifar-100-python \
     --nb_classes 100 \
-    --output_dir cifar100_finetune \
+    --output_dir cifar100_linprobe_point \
     --device cuda
 
