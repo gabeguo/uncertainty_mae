@@ -216,39 +216,6 @@ class EncoderViT(nn.Module):
 
         return x_masked, mask, ids_restore
 
-if __name__ == "__main__":
-    backbone_path = '/home/gabeguo/vae_mae/cifar100_train/checkpoint-399.pth'
-
-    # dummy data
-    x = torch.rand(4, 3, 224, 224)
-
-    # create teacher
-    teacher = TeacherViT(backbone_path=backbone_path, return_all_tokens=False)
-    print(teacher(x).shape)
-    teacher_learnable_params = {item[0] for item in teacher.named_parameters() if item[1].requires_grad}
-    print('learnable teacher params:', len(teacher_learnable_params))
-
-    # create student
-    model = MultiHeadViT(backbone_path=backbone_path, 
-                         num_unshared_layers=1, freeze_backbone=False, return_all_tokens=False)
-
-    print(model)
-
-    print([item.shape for item in model(x)])
-
-    learnable_parameters = {x[0] for x in model.named_parameters() if x[1].requires_grad}
-    all_parameters = {x[0] for x in model.named_parameters()}
-
-    assert len([y1 for y1 in model.named_parameters()]) == len([y2 for y2 in model.parameters()])
-
-    non_learnable_parameters = all_parameters - learnable_parameters
-    assert all(['backbone.' in the_param for the_param in non_learnable_parameters])
-    # print('non-learnable parameters:', non_learnable_parameters)
-    # print('learnable parameters:', learnable_parameters)
-    
-    print('num learnable parameters:', len(learnable_parameters))
-    print('num parameters:', len(all_parameters))
-
 class ConfidenceIntervalViT(nn.Module):
     def __init__(self, lower_model, middle_model, upper_model,
                         interval_scale):
@@ -261,16 +228,13 @@ class ConfidenceIntervalViT(nn.Module):
         self.upper_model = upper_model
         self.interval_scale = interval_scale
 
-        self.head = self.middle_model.head
+        self.fusion = nn.Conv1d(in_channels=3, out_channels=1, kernel_size=1, stride=1)
 
-        self.is_point_estimator = False
+        self.head = self.middle_model.head
 
         return
     
     def forward(self, x):
-        if self.is_point_estimator:
-            return self.head(self.middle_model.forward_features(x))
-        # otherwise, sample from CI
         z_lower = self.lower_model.forward_features(x)
         z_point = self.middle_model.forward_features(x)
         z_upper = self.upper_model.forward_features(x)
@@ -278,15 +242,19 @@ class ConfidenceIntervalViT(nn.Module):
         low = z_point - self.interval_scale * (z_point - z_lower)
         high = z_point + self.interval_scale * (z_upper - z_point)
 
-        r = torch.rand_like(low)
+        B = z_point.shape[0]
+        L = z_point.shape[1]
+        assert len(z_point.shape) == 2
+        assert L == 768
 
-        z_sample = r * low + (1 - r) * high
+        combined_features = torch.stack([z_lower, z_point, z_upper], dim=1)
+        assert combined_features.shape == (B, 3, L)
+
+        fused = self.fusion(combined_features)
+        assert fused.shape == (B, 1, L)
+        fused = fused.reshape(B, L)
 
         # TODO: not 100% sure if this is correct
-        output = self.head(z_sample)
+        output = self.head(fused)
 
         return output
-    
-    def point_estimate_mode(self, is_point_estimator):
-        self.is_point_estimator = is_point_estimator
-        return

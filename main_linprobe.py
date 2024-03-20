@@ -119,6 +119,9 @@ def get_args_parser():
     parser.add_argument('--dist_on_itp', action='store_true')
     parser.add_argument('--dist_url', default='env://',
                         help='url used to set up distributed training')
+    
+    parser.add_argument('--eval_weights', default='/home/gabeguo/uncertainty_mae/cifar100_linprobe_uncertainty/checkpoint-89.pth',
+                        type=str, help='weights for evaluation')
 
     return parser
 
@@ -162,6 +165,10 @@ def set_head(model, device):
         p.requires_grad = False
     for _, p in model.head.named_parameters():
         p.requires_grad = True
+    if isinstance(model, ConfidenceIntervalViT):
+        print('confidence interval ViT: unfreeze conv layer')
+        for _, p in model.fusion.named_parameters():
+            p.requires_grad = True
 
     model.to(device)
     return
@@ -316,6 +323,8 @@ def main(args):
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
 
     if args.eval:
+        model.load_state_dict(torch.load(args.eval_weights)['model'])
+        print(f'loaded weights: {args.eval_weights}')
         test_stats = evaluate(data_loader_val, model, device)
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
         exit(0)
@@ -334,15 +343,11 @@ def main(args):
             log_writer=log_writer,
             args=args
         )
-        if args.output_dir:
+        if args.output_dir and epoch % 5 == 0:
             misc.save_model(
                 args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                 loss_scaler=loss_scaler, epoch=epoch)
-        # if isinstance(model, ConfidenceIntervalViT):
-        #     model.point_estimate_mode(True) # turn on point estimation
         test_stats = evaluate(data_loader_val, model, device)
-        # if isinstance(model, ConfidenceIntervalViT):
-        #     model.point_estimate_mode(False) # turn off point estimation
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
         max_accuracy = max(max_accuracy, test_stats["acc1"])
         print(f'Max accuracy: {max_accuracy:.2f}%')
