@@ -38,6 +38,11 @@ import models_vit
 
 from engine_finetune import train_one_epoch, evaluate
 
+import wandb
+import torchvision.transforms as transforms
+import torchvision.datasets as datasets
+
+from util.crop import RandomResizedCrop
 
 def get_args_parser():
     parser = argparse.ArgumentParser('MAE fine-tuning for image classification', add_help=False)
@@ -170,8 +175,22 @@ def main(args):
 
     cudnn.benchmark = True
 
-    dataset_train = build_dataset(is_train=True, args=args)
-    dataset_val = build_dataset(is_train=False, args=args)
+    # linear probe: weak augmentation
+    transform_train = transforms.Compose([
+            RandomResizedCrop(224, interpolation=3),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+    transform_val = transforms.Compose([
+            transforms.Resize(256, interpolation=3),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+    # dataset_train = datasets.ImageFolder(os.path.join(args.data_path, 'train'), transform=transform_train)
+    # dataset_val = datasets.ImageFolder(os.path.join(args.data_path, 'val'), transform=transform_val)
+
+    dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train)
+    dataset_val = datasets.CIFAR100('../data', train=False, download=True, transform=transform_val)
 
     if True:  # args.distributed:
         num_tasks = misc.get_world_size()
@@ -304,6 +323,7 @@ def main(args):
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
         exit(0)
 
+    wandb.init(config=args, project='finetune', name=f"regular")
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     max_accuracy = 0.0
@@ -336,6 +356,7 @@ def main(args):
                         **{f'test_{k}': v for k, v in test_stats.items()},
                         'epoch': epoch,
                         'n_parameters': n_parameters}
+        wandb.log(log_stats)
 
         if args.output_dir and misc.is_main_process():
             if log_writer is not None:
