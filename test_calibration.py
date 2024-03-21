@@ -37,6 +37,7 @@ def reliability_diagram(args, softmax_probs, gt_labels):
     # Calculate accuracy for each bin
     bin_accuracy = np.zeros(args.num_bins)
     bin_count = np.zeros(args.num_bins)
+    bin_confidence = np.zeros(args.num_bins)
     for i in range(args.num_bins):
         in_bin = digitized == i
         #print('in bin', in_bin, sum(in_bin))
@@ -46,6 +47,12 @@ def reliability_diagram(args, softmax_probs, gt_labels):
             assert item in in_bin
         bin_accuracy[i] = sum(correct_predictions) / sum(in_bin) if sum(in_bin) > 0 else np.nan
         bin_count[i] = sum(in_bin)
+        bin_confidence[i] = np.mean(top_class_probs[in_bin]) if sum(in_bin) > 0 else np.nan
+
+    ece = np.sum([bin_count[i] / N * np.abs(bin_accuracy[i] - bin_confidence[i])
+        for i in range(args.num_bins) if bin_count[i] > 0
+    ])
+    print(f'ece = {ece:.3f}')
 
     # Plot reliability diagram
     plt.figure(figsize=(10, 5))
@@ -55,15 +62,16 @@ def reliability_diagram(args, softmax_probs, gt_labels):
     plt.grid()
     plt.stairs(values=bin_accuracy, edges=bins, fill=True)
     plt.plot([0, 1], [0, 1])
+    plt.plot(bin_confidence, bin_accuracy, label='confidence v. accuracy')
     plt.xlim(0, 1)
     plt.ylim(0, 1)
-    plt.title('Reliability Diagram')
+    plt.title(f'Reliability Diagram: ECE = {ece:.3f}')
     plt.xlabel('Confidence')
     plt.ylabel('Accuracy')
 
     # Plot sample count in each bin
     plt.subplot(1, 2, 2)
-    plt.xticks(bins)
+    plt.xticks(bins, rotation=70)
     plt.grid()
     plt.stairs(values=bin_count, edges=bins, fill=True)
     plt.title('Samples per Bin')
@@ -77,7 +85,6 @@ def reliability_diagram(args, softmax_probs, gt_labels):
     plt.close()
 
     return
-
 
 @torch.no_grad()
 def eval(args):
