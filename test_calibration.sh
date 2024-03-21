@@ -4,3 +4,7 @@ python test_calibration.py \
 
 python test_calibration.py \
     --eval_weights /home/gabeguo/uncertainty_mae/cifar100_linprobe_point/checkpoint-89.pth
+
+python test_calibration.py \
+    --eval_weights /home/gabeguo/uncertainty_mae/cifar100_finetune_point/checkpoint-99.pth \
+    --global_pool

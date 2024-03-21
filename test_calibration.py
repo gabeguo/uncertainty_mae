@@ -80,8 +80,10 @@ def reliability_diagram(args, softmax_probs, gt_labels):
     plt.tight_layout()
     #plt.show()
 
+    label = args.eval_weights.split('/')[-2]
+
     os.makedirs(args.output_dir, exist_ok=True)
-    plt.savefig(f"{args.output_dir}/calibration_{'ci' if args.use_ci else 'vanilla'}.png")
+    plt.savefig(f"{args.output_dir}/calibration_{label}.png")
     plt.close()
 
     return
@@ -103,7 +105,8 @@ def eval(args):
             num_classes=args.nb_classes,
             global_pool=args.global_pool,
         )
-        set_head(model, 'cuda')
+        if not args.global_pool:
+            set_head(model, 'cuda')
     model.load_state_dict(torch.load(args.eval_weights)['model'])
     model.cuda()
     model.eval()
