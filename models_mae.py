@@ -19,13 +19,20 @@ from timm.models.vision_transformer import PatchEmbed, Block
 from util.pos_embed import get_2d_sincos_pos_embed
 
 
+def quantile_loss(z_pred, z_gt, q):
+    unreduced_loss = torch.maximum(z_gt - z_pred, torch.zeros_like(z_gt)) * q + \
+        torch.maximum(z_pred - z_gt, torch.zeros_like(z_gt)) * (1 - q)
+    reduced_loss = torch.mean(unreduced_loss)
+    return reduced_loss
+
 class MaskedAutoencoderViT(nn.Module):
     """ Masked Autoencoder with VisionTransformer backbone
     """
     def __init__(self, img_size=224, patch_size=16, in_chans=3,
                  embed_dim=1024, depth=24, num_heads=16,
                  decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
-                 mlp_ratio=4., norm_layer=nn.LayerNorm, norm_pix_loss=False):
+                 mlp_ratio=4., norm_layer=nn.LayerNorm, norm_pix_loss=False,
+                 quantile=None):
         super().__init__()
 
         # --------------------------------------------------------------------------
@@ -59,6 +66,8 @@ class MaskedAutoencoderViT(nn.Module):
         # --------------------------------------------------------------------------
 
         self.norm_pix_loss = norm_pix_loss
+
+        self.quantile = quantile
 
         self.initialize_weights()
 
@@ -207,7 +216,10 @@ class MaskedAutoencoderViT(nn.Module):
             var = target.var(dim=-1, keepdim=True)
             target = (target - mean) / (var + 1.e-6)**.5
 
-        loss = (pred - target) ** 2
+        if self.quantile is not None:
+            loss = quantile_loss(z_pred=pred, z_gt=target, q=self.quantile)
+        else:
+            loss = (pred - target) ** 2
         loss = loss.mean(dim=-1)  # [N, L], mean loss per patch
 
         loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches

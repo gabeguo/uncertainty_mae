@@ -34,6 +34,7 @@ import models_mae
 
 from engine_pretrain import train_one_epoch
 
+import wandb
 
 def get_args_parser():
     parser = argparse.ArgumentParser('MAE pre-training', add_help=False)
@@ -46,16 +47,15 @@ def get_args_parser():
     # Model parameters
     parser.add_argument('--model', default='mae_vit_large_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
-
     parser.add_argument('--input_size', default=224, type=int,
                         help='images input size')
-
     parser.add_argument('--mask_ratio', default=0.75, type=float,
                         help='Masking ratio (percentage of removed patches).')
-
     parser.add_argument('--norm_pix_loss', action='store_true',
                         help='Use (per-patch) normalized pixels as targets for computing loss')
     parser.set_defaults(norm_pix_loss=False)
+    parser.add_argument('--quantile', default=None, type=float,
+                        help='None if we train with MSE. Otherwise, set to # between 0 and 1 for pinball loss.')
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
@@ -119,6 +119,7 @@ def main(args):
 
     cudnn.benchmark = True
 
+    # TODO: better transform
     # simple augmentation
     transform_train = transforms.Compose([
             transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
@@ -127,6 +128,10 @@ def main(args):
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
     dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train)
     print(dataset_train[0][0].shape)
+
+    # train_indices = [i for i in range(45000)]
+    # print(f'using only {len(train_indices)} indices')
+    # dataset_train = torch.utils.data.Subset(dataset_train, train_indices)
 
     if True:  # args.distributed:
         num_tasks = misc.get_world_size()
@@ -153,7 +158,9 @@ def main(args):
     )
     
     # define the model
-    model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss)
+    assert (args.quantile is None) or (args.quantile > 0 and args.quantile < 1)
+    model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
+                                            quantile=args.quantile)
 
     model.to(device)
 
@@ -183,6 +190,8 @@ def main(args):
 
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
 
+    wandb.init(config=args, project='pretrain_mae', name=f"model_{args.quantile if args.quantile else 'mse'}")
+    wandb.watch(model)
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
@@ -201,6 +210,7 @@ def main(args):
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                         'epoch': epoch,}
+        wandb.log(log_stats, step=epoch)
 
         if args.output_dir and misc.is_main_process():
             if log_writer is not None:
