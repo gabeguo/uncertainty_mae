@@ -15,6 +15,10 @@ class MultiHeadMAE(nn.Module):
         return
     
     def forward(self, imgs, mask_ratio=0.75):
+        """
+        Returns:
+        lower_loss, lower_pred, median_loss, median_pred, upper_loss, upper_pred, mask
+        """
         latent, mask, ids_restore = self.median_mae.forward_encoder(imgs, mask_ratio)
         the_preds = list()
         the_losses = list()
