@@ -4,6 +4,8 @@ from models_mae import MaskedAutoencoderViT
 
 class MultiHeadMAE(nn.Module):
     def __init__(self, lower_mae, median_mae, upper_mae):
+        super().__init__()
+        
         assert isinstance(lower_mae, MaskedAutoencoderViT)
         assert isinstance(median_mae, MaskedAutoencoderViT)
         assert isinstance(upper_mae, MaskedAutoencoderViT)
