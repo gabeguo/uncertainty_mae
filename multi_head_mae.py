@@ -17,17 +17,14 @@ class MultiHeadMAE(nn.Module):
     def forward(self, imgs, mask_ratio=0.75):
         """
         Returns:
-        lower_loss, lower_pred, median_loss, median_pred, upper_loss, upper_pred, mask
+        sum_losses, [lower_pred, median_pred, upper_pred], mask
         """
         latent, mask, ids_restore = self.median_mae.forward_encoder(imgs, mask_ratio)
         the_preds = list()
-        the_losses = list()
+        total_loss = 0
         for curr_model in [self.lower_mae, self.median_mae, self.upper_mae]:
             pred = curr_model.forward_decoder(latent, ids_restore)  # [N, L, p*p*3]
             loss = curr_model.forward_loss(imgs, pred, mask)
             the_preds.append(pred)
-            the_losses.append(loss)
-        return the_losses[0], the_preds[0], \
-                the_losses[1], the_preds[1], \
-                the_losses[2], the_preds[2], \
-                mask
+            total_loss += loss
+        return total_loss, the_preds, mask

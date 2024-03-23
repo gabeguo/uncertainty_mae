@@ -31,6 +31,7 @@ import util.misc as misc
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
 
 import models_mae
+from multi_head_mae import MultiHeadMAE
 
 from engine_pretrain import train_one_epoch
 
@@ -56,6 +57,12 @@ def get_args_parser():
     parser.set_defaults(norm_pix_loss=False)
     parser.add_argument('--quantile', default=None, type=float,
                         help='None if we train with MSE. Otherwise, set to # between 0 and 1 for pinball loss.')
+    parser.add_argument('--lower', default=None, type=float,
+                        help='Lower quantile for multi-head decoder')
+    parser.add_argument('--median', default=None, type=float,
+                        help='Median for multi-head decoder')
+    parser.add_argument('--upper', default=None, type=float,
+                        help='Upper quantile for multi-head decoder')
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
@@ -158,9 +165,21 @@ def main(args):
     )
     
     # define the model
-    assert (args.quantile is None) or (args.quantile > 0 and args.quantile < 1)
-    model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
-                                            quantile=args.quantile)
+    if (args.lower is not None) and (args.median is not None) and (args.upper is not None):
+        assert 0 < args.lower < args.median < args.upper < 1
+        lower_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
+                                                quantile=args.lower)
+        median_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
+                                                quantile=args.median)
+        upper_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
+                                                quantile=args.upper)
+        model = MultiHeadMAE(lower_mae=lower_model, median_mae=median_model, upper_mae=upper_model)
+        print('create multi-head decoder')
+    else:
+        assert (args.quantile is None) or (args.quantile > 0 and args.quantile < 1)
+        model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
+                                                quantile=args.quantile)
+        print('create point model')
 
     model.to(device)
 
