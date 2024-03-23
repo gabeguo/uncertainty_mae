@@ -209,7 +209,13 @@ def main(args):
 
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
 
-    wandb.init(config=args, project='pretrain_mae', name=f"model_{args.quantile if args.quantile else 'mse'}")
+    if (args.lower and args.median and args.upper):
+        wandb_name = f'multiDecoder_{args.lower}_{args.median}_{args.upper}'
+    elif args.quantile:
+        wandb_name = f'quantile_{args.quantile}'
+    else:
+        wandb_name = f'mse'
+    wandb.init(config=args, project='pretrain_mae', name=f"model_{wandb_name}")
     wandb.watch(model)
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
