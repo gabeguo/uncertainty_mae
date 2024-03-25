@@ -39,6 +39,8 @@ import models_vit
 from engine_finetune import train_one_epoch, evaluate
 import wandb
 from uncertainty_vit import ConfidenceIntervalViT
+from multi_head_mae import MultiHeadMAE
+import models_mae
 
 
 def get_args_parser():
@@ -131,7 +133,20 @@ def set_model(args, model, weight_path):
     print("Load pre-trained checkpoint from: %s" % weight_path)
     if 'model' in checkpoint:
         checkpoint_model = checkpoint['model']
+        if any(['median_mae' in the_key for the_key in checkpoint_model]):
+            # we have multi-head decoder
+            lower_model = models_mae.__dict__['mae_' + args.model](norm_pix_loss=False, 
+                                                    quantile=0.05)
+            median_model = models_mae.__dict__['mae_' + args.model](norm_pix_loss=False, 
+                                                    quantile=0.5)
+            upper_model = models_mae.__dict__['mae_' + args.model](norm_pix_loss=False, 
+                                                    quantile=0.95)
+            multi_head_mae = MultiHeadMAE(lower_mae=lower_model, median_mae=median_model, upper_mae=upper_model)
+            multi_head_mae.load_state_dict(checkpoint_model)
+            checkpoint_model = multi_head_mae.median_mae.state_dict()
+            print('load multi head MAE')
     else:
+        raise ValueError('model should be in checkpoint')
         checkpoint_model = checkpoint
     state_dict = model.state_dict()
     for k in ['head.weight', 'head.bias']:
