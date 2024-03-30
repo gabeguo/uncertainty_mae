@@ -81,7 +81,9 @@ def get_args_parser():
     # Dataset parameters
     parser.add_argument('--data_path', default='/datasets01/imagenet_full_size/061417/', type=str,
                         help='dataset path')
-
+    parser.add_argument('--dataset_name', default='cifar', type=str,
+                        help='name of dataset, either cifar or imagenet')
+    
     parser.add_argument('--output_dir', default='./output_dir',
                         help='path where to save, empty for no saving')
     parser.add_argument('--log_dir', default='./output_dir',
@@ -133,7 +135,7 @@ def main(args):
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
-    dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train)
+    dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train) if args.dataset_name == 'cifar' else datasets.ImageNet(args.data_path, train=True, download=True, transform=transform_train)
     print(dataset_train[0][0].shape)
 
     # train_indices = [i for i in range(45000)]
