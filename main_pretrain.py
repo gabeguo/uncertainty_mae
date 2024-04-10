@@ -115,6 +115,8 @@ def get_args_parser():
 
 def main(args):
     misc.init_distributed_mode(args)
+    # print("Distributed?", args.distributed)
+    # print("Num GPU = ", args.gpu)
 
     print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
     print("{}".format(args).replace(', ', ',\n'))
@@ -125,7 +127,7 @@ def main(args):
     seed = args.seed + misc.get_rank()
     torch.manual_seed(seed)
     np.random.seed(seed)
-
+    torch.cuda.amp.autocast(enabled=False)
     cudnn.benchmark = True
 
     # TODO: better transform
@@ -135,7 +137,7 @@ def main(args):
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
-    dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train) if args.dataset_name == 'cifar' else datasets.ImageNet(args.data_path, train=True, download=True, transform=transform_train)
+    dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train) if args.dataset_name == 'cifar' else datasets.ImageNet(args.data_path, split="train", transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
     print(dataset_train[0][0].shape)
 
     # train_indices = [i for i in range(45000)]
