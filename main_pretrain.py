@@ -177,6 +177,8 @@ def main_distributed(rank, world_size, args):
     if rank == 0 and args.log_dir is not None:
         os.makedirs(args.log_dir, exist_ok=True)
         log_writer = SummaryWriter(log_dir=args.log_dir)
+    else:
+        log_writer = None
 
     # define the model
     if (args.lower is not None) and (args.median is not None) and (args.upper is not None):
@@ -234,7 +236,8 @@ def main_distributed(rank, world_size, args):
     else:
         wandb_name = f'mse'
 
-    wandb.init(config=args, project='pretrain_mae', name=f"model_{wandb_name}")
+    model_name = wandb_name + datetime.now().strftime("%H:%M:%S")
+    wandb.init(config=args, project='pretrain_mae', name=f"model_{model_name}")
     wandb.watch(model)
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
@@ -318,7 +321,7 @@ def main(args):
     #         transforms.ToTensor(),
     #         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     #     ])
-    dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train) if args.dataset_name == 'cifar' else datasets.ImageNet(args.data_path, split="train", transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
+    dataset_train = datasets.CIFAR100('/local/vondrick/aniv', train=True, download=True, transform=transform_train) if args.dataset_name == 'cifar' else datasets.ImageNet(args.data_path, split="train", transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
     # dataset_val = datasets.CIFAR100('../data', train=False, download=True, transform=transform_val)
 
     
@@ -446,6 +449,7 @@ if __name__ == '__main__':
     print("Distributed ? ", args.distributed)
     if args.distributed:
         world_size = torch.cuda.device_count()
+        print(world_size)
         mp.spawn(main_distributed, args=(world_size, args), nprocs=world_size, join=True)
     else:
         main(args)
