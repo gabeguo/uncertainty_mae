@@ -248,7 +248,7 @@ def main_distributed(rank, world_size, args):
         train_stats = train_one_epoch(
             model, data_loader_train,
             optimizer, device, epoch, loss_scaler,
-            5, # Added this part
+            1.0, # Added this part
             log_writer=log_writer,
             args=args
         )
