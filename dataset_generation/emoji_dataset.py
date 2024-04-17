@@ -9,24 +9,14 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 class EmojiDataset(Dataset):
-    def __init__(self, emoji_dir, train=True):
+    def __init__(self, emoji_dir):
         self.emoji_dir = emoji_dir
         self.train_percent = train_percent
-        self.train = train
-        if self.train:
-            self.transform = transforms.Compose([
-                transforms.RandomResizedCrop(224),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-            ])
-        else:
-            self.transform = transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-            ])
+        self.transform = transforms.Compose([
+            transforms.Resize(224),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
         self.create_data()
 
         return
