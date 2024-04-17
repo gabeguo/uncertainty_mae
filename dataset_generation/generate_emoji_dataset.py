@@ -3,6 +3,7 @@ from PIL import Image, ImageDraw, ImageFont
 import os
 import argparse
 from tqdm import tqdm
+import random
 
 def plot_emoji(emoji_name, output_folder, width, height):
     the_emoji = emoji.emojize(emoji_name, language='alias')
@@ -16,14 +17,25 @@ def plot_emoji(emoji_name, output_folder, width, height):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--output_dir', default='/home/gabeguo/columbia_emoji', type=str)
+    parser.add_argument('--output_dir', default='columbia_emoji', type=str)
+    parser.add_argument('--train_percent', default=0.9)
     args = parser.parse_args()
 
-    os.makedirs(args.output_dir, exist_ok=True)
+    train_dir = os.path.join(args.output_dir, 'train')
+    val_dir = os.path.join(args.output_dir, 'val')
+    os.makedirs(train_dir, exist_ok=True)
+    os.makedirs(val_dir, exist_ok=True)
 
     # print(list(emoji.EMOJI_DATA)[0:5])
+    random.seed(42)
     all_emojis = [emoji.demojize(x) for x in list(emoji.EMOJI_DATA)]
-    for emoji_name in tqdm(all_emojis):
+    random.shuffle(all_emojis)
+    first_val_idx = int(len(all_emojis) * args.train_percent)
+    for emoji_name in tqdm(all_emojis[:first_val_idx]):
         plot_emoji(emoji_name=emoji_name, 
-                output_folder=args.output_dir,
+                output_folder=train_dir,
                 width=224, height=224)
+    for emoji_name in tqdm(all_emojis[first_val_idx:]):
+        plot_emoji(emoji_name=emoji_name, 
+                output_folder=val_dir,
+                width=224, height=224)        
