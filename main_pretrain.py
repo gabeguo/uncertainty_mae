@@ -28,6 +28,7 @@ import models_mae
 from multi_head_mae import MultiHeadMAE
 
 from engine_pretrain import train_one_epoch
+from dataset_generation.emoji_dataset import EmojiDataset
 
 import wandb
 
@@ -76,7 +77,7 @@ def get_args_parser():
     parser.add_argument('--data_path', default='/datasets01/imagenet_full_size/061417/', type=str,
                         help='dataset path')
     parser.add_argument('--dataset_name', default='cifar', type=str,
-                        help='name of dataset, either cifar or imagenet')
+                        help='name of dataset, either cifar, emoji, or imagenet')
     
     parser.add_argument('--output_dir', default='./output_dir',
                         help='path where to save, empty for no saving')
@@ -283,7 +284,13 @@ def main(args):
     #         transforms.ToTensor(),
     #         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     #     ])
-    dataset_train = datasets.CIFAR100('/local/vondrick/aniv', train=True, download=True, transform=transform_train) if args.dataset_name == 'cifar' else datasets.ImageNet(args.data_path, split="train", transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
+    if args.dataset_name == 'cifar':
+        dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train)
+    elif args.dataset_name == 'emoji':
+        dataset_train = EmojiDataset(os.path.join(args.data_path, 'train'))
+    else:
+        dataset_train = datasets.ImageNet(args.data_path, split="train", 
+            transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
     # dataset_val = datasets.CIFAR100('../data', train=False, download=True, transform=transform_val)
 
     
