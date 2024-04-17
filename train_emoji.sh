@@ -5,4 +5,6 @@ python main_pretrain.py \
     --accum_iter 1 \
     --output_dir emoji_train \
     --log_dir emoji_train \
-    --model mae_vit_base_patch16 
+    --model mae_vit_base_patch16 \
+    --epochs 2000 \
+    --log_freq 250

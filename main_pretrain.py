@@ -83,6 +83,8 @@ def get_args_parser():
                         help='path where to save, empty for no saving')
     parser.add_argument('--log_dir', default='./output_dir',
                         help='path where to tensorboard log')
+    parser.add_argument('--log_freq', default=40, type=int,
+                        help='how many epochs in between logs')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
     parser.add_argument('--seed', default=0, type=int)
@@ -215,7 +217,7 @@ def main_distributed(rank, world_size, args):
             log_writer=log_writer,
             args=args
         )
-        if args.output_dir and (epoch % 40 == 0 or epoch + 1 == args.epochs):
+        if args.output_dir and (epoch % args.log_freq == 0 or epoch + 1 == args.epochs):
             misc.save_model(
                 args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                 loss_scaler=loss_scaler, epoch=epoch)
