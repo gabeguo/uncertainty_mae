@@ -28,5 +28,5 @@ class MultiHeadMAE(nn.Module):
             pred = curr_model.forward_decoder(latent, ids_restore)  # [N, L, p*p*3]
             loss = curr_model.forward_loss(imgs, pred, mask)
             the_preds.append(pred)
-            total_loss += loss
+            total_loss += (1.0/3.0) * loss
         return total_loss, the_preds, mask

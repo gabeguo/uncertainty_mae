@@ -91,6 +91,8 @@ def get_args_parser():
                         help='dataset path')
     parser.add_argument('--nb_classes', default=1000, type=int,
                         help='number of the classification types')
+    parser.add_argument('--dataset_name', default='cifar', type=str,
+                        help='name of dataset, either cifar or imagenet')
 
     parser.add_argument('--output_dir', default='./output_dir',
                         help='path where to save, empty for no saving')
@@ -223,8 +225,8 @@ def main(args):
     # dataset_train = datasets.ImageFolder(os.path.join(args.data_path, 'train'), transform=transform_train)
     # dataset_val = datasets.ImageFolder(os.path.join(args.data_path, 'val'), transform=transform_val)
 
-    dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train)
-    dataset_val = datasets.CIFAR100('../data', train=False, download=True, transform=transform_val)
+    dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train) if args.dataset_name == 'cifar' else datasets.ImageNet(args.data_path, split="train", transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
+    dataset_val = datasets.CIFAR100('../data', train=False, download=True, transform=transform_val) if args.dataset_name == 'cifar' else datasets.ImageNet(args.data_path, split="val", transform=transform_val, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
 
     print(dataset_train)
     print(dataset_val)
