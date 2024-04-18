@@ -3,8 +3,8 @@ python main_pretrain.py \
     --dataset_name emoji \
     --batch_size 64 \
     --accum_iter 1 \
-    --output_dir emoji_train \
-    --log_dir emoji_train \
+    --output_dir emoji_train_long \
+    --log_dir emoji_train_long \
     --model mae_vit_base_patch16 \
-    --epochs 2000 \
-    --log_freq 250
+    --epochs 4000 \
+    --log_freq 500
