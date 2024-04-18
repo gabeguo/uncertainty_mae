@@ -13,7 +13,7 @@ from tqdm import tqdm
 import os
 
 # Thanks ChatGPT!
-def reliability_diagram(args, softmax_probs, gt_labels):
+def reliability_diagram(args, softmax_probs, gt_labels, top1_acc, top5_acc):
     # checking that we have data in expected format
     N = softmax_probs.shape[0]
     assert softmax_probs.shape == (N, args.nb_classes)
@@ -65,7 +65,7 @@ def reliability_diagram(args, softmax_probs, gt_labels):
     plt.plot(bin_confidence, bin_accuracy, label='confidence v. accuracy')
     plt.xlim(0, 1)
     plt.ylim(0, 1)
-    plt.title(f'Reliability Diagram: ECE = {ece:.3f}')
+    plt.title(f'Reliability Diagram: ECE = {ece:.3f}\nAcc1 = {top1_acc:.3f}; Acc5 = {top5_acc:.3f}')
     plt.xlabel('Confidence')
     plt.ylabel('Accuracy')
 
@@ -153,11 +153,13 @@ def eval(args):
         all_labels = torch.cat(all_labels, dim=0)
         assert all_softmax.shape == (all_labels.shape[0], args.nb_classes)
         assert all_labels.shape == (len(dataset_val),)
-        
-        all_softmax = all_softmax.detach().cpu().numpy()
-        all_labels = all_labels.detach().cpu().numpy()
-    
-    return all_softmax, all_labels
+            
+    top1_acc, top5_acc = accuracy(all_softmax, all_labels, topk=(1, 5))
+
+    all_softmax = all_softmax.detach().cpu().numpy()
+    all_labels = all_labels.detach().cpu().numpy()
+
+    return all_softmax, all_labels, top1_acc/100, top5_acc/100
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -173,7 +175,7 @@ if __name__ == "__main__":
                         help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
     parser.add_argument('--scale_factor_path', default='/home/gabeguo/uncertainty_mae/cifar100_quantile/interval_width.pt', type=str,
                         help='path to scale factor')
-    parser.add_argument('--output_dir', default='calibration_vis', type=str)
+    parser.add_argument('--output_dir', default='linprobe_calibration_vis', type=str)
     args = parser.parse_args()
 
     # num_samples = 1000
@@ -186,6 +188,6 @@ if __name__ == "__main__":
     #     gt_labels[i] = i % args.nb_classes
     # #print('gt labels', gt_labels)
     # #gt_labels = np.random.randint(0, args.nb_classes, size=num_samples)
-    softmax_probs, gt_labels = eval(args)
+    softmax_probs, gt_labels, top1_acc, top5_acc = eval(args)
 
-    reliability_diagram(args=args, softmax_probs=softmax_probs, gt_labels=gt_labels)
+    reliability_diagram(args=args, softmax_probs=softmax_probs, gt_labels=gt_labels, top1_acc=top1_acc, top5_acc=top5_acc)
