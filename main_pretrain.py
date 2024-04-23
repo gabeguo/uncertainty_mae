@@ -379,7 +379,7 @@ def main(args):
     else:
         wandb_name = f'mse'
 
-    wandb_name += f"_{args.dataset}_{'_'.join(args.image_keywords) if args.image_keywords is not None else ''}"
+    wandb_name += f"_{args.dataset_name}_{'_'.join(args.image_keywords) if args.image_keywords is not None else ''}"
 
     wandb.init(config=args, project='pretrain_mae', name=f"model_{wandb_name}")
     wandb.watch(model)
