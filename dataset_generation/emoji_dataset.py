@@ -8,12 +8,13 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 class EmojiDataset(Dataset):
-    def __init__(self, emoji_dir):
+    def __init__(self, emoji_dir, keywords=None):
         self.emoji_dir = emoji_dir
         self.transform = transforms.Compose([
             transforms.Resize(224),
             transforms.Normalize([238, 234, 231], [50, 53, 62])
         ])
+        self.keywords = keywords
         self.create_data()
 
         return
@@ -22,6 +23,9 @@ class EmojiDataset(Dataset):
         self.filenames = list()
         self.images = list()
         for filename in tqdm(os.listdir(self.emoji_dir)):
+            if (self.keywords is not None) \
+                and not any(curr_keyword in filename for curr_keyword in self.keywords):
+                continue 
             filepath = os.path.join(self.emoji_dir, filename)
             assert os.path.exists(filepath)
             self.filenames.append(filepath)
