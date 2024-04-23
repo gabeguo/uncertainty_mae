@@ -6,6 +6,6 @@ python main_pretrain.py \
     --output_dir emoji_train_couple \
     --log_dir emoji_train_couple \
     --model mae_vit_base_patch16 \
-    --epochs 8000 \
-    --log_freq 1000 \
+    --epochs 20000 \
+    --log_freq 2000 \
     --image_keywords couple
