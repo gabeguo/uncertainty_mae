@@ -184,9 +184,9 @@ class MaskedAutoencoderViT(nn.Module):
         # embed tokens
         x = self.decoder_embed(x)
 
-        print('x embedding shape', x.shape)
-        print('mask token shape', self.mask_token.shape)
-        print('ids restore shape', ids_restore.shape)
+        # print('x embedding shape', x.shape)
+        # print('mask token shape', self.mask_token.shape)
+        # print('ids restore shape', ids_restore.shape)
 
         # append mask tokens to sequence
         mask_tokens = self.mask_token.repeat(x.shape[0], ids_restore.shape[1] + 1 - x.shape[1], 1)
