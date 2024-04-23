@@ -58,6 +58,10 @@ def get_args_parser():
                         help='Median for multi-head decoder')
     parser.add_argument('--upper', default=None, type=float,
                         help='Upper quantile for multi-head decoder')
+    parser.add_argument('--vae', action='store_true', 
+                        help='is this a vae?')
+    parser.add_argument('--kld_beta', default=1, type=float,
+                        help='Beta term if using VAE')
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
@@ -341,7 +345,7 @@ def main(args):
     else:
         assert (args.quantile is None) or (args.quantile > 0 and args.quantile < 1)
         model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
-                                                quantile=args.quantile)
+                                                quantile=args.quantile, vae=args.vae, kld_beta=args.kld_beta)
         print('create point model')
 
     model.to(device)
@@ -379,6 +383,7 @@ def main(args):
     else:
         wandb_name = f'mse'
 
+    wandb_name += f"_{args.output_dir}"
     wandb_name += f"_{args.dataset_name}_{'_'.join(args.image_keywords) if args.image_keywords is not None else ''}"
 
     wandb.init(config=args, project='pretrain_mae', name=f"model_{wandb_name}")
