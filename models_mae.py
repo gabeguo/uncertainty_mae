@@ -32,8 +32,11 @@ class MaskedAutoencoderViT(nn.Module):
                  embed_dim=1024, depth=24, num_heads=16,
                  decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
                  mlp_ratio=4., norm_layer=nn.LayerNorm, norm_pix_loss=False,
-                 quantile=None):
+                 quantile=None, vae=False, kld_beta=1):
         super().__init__()
+
+        self.vae = vae
+        self.kld_beta = kld_beta
 
         # --------------------------------------------------------------------------
         # MAE encoder specifics
@@ -46,6 +49,10 @@ class MaskedAutoencoderViT(nn.Module):
         self.blocks = nn.ModuleList([
             Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer)
             for i in range(depth)])
+        self.vae = False
+        if self.vae:
+            self.block_mean = Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer)
+            self.block_log_var = Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer)
         self.norm = norm_layer(embed_dim)
         # --------------------------------------------------------------------------
 
@@ -158,6 +165,12 @@ class MaskedAutoencoderViT(nn.Module):
 
         return x_masked, mask, ids_restore
 
+    # Thanks https://github.com/Jackson-Kang/Pytorch-VAE-tutorial/blob/master/01_Variational_AutoEncoder.ipynb
+    def reparameterization(self, mean, var):
+        epsilon = torch.randn_like(var)     
+        z = mean + var * epsilon
+        return z
+
     def forward_encoder(self, x, mask_ratio, force_mask=None):
         # embed patches
         x = self.patch_embed(x)
@@ -176,6 +189,12 @@ class MaskedAutoencoderViT(nn.Module):
         # apply Transformer blocks
         for blk in self.blocks:
             x = blk(x)
+        if self.vae:
+            mean_x = self.block_mean(x)
+            log_var_x = self.block_log_var(x)
+            x = self.reparameterization(mean=mean_x, var=torch.exp(0.5 * log_var_x))
+            x = self.norm(x)
+            return x, mask, ids_restore, mean_x, log_var_x
         x = self.norm(x)
 
         return x, mask, ids_restore
@@ -210,7 +229,7 @@ class MaskedAutoencoderViT(nn.Module):
 
         return x
 
-    def forward_loss(self, imgs, pred, mask):
+    def forward_loss(self, imgs, pred, mask, latent_mean=None, latent_log_var=None):
         """
         imgs: [N, 3, H, W]
         pred: [N, L, p*p*3]
@@ -229,12 +248,22 @@ class MaskedAutoencoderViT(nn.Module):
         loss = loss.mean(dim=-1)  # [N, L], mean loss per patch
 
         loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
+        if self.vae:
+            kld_loss = -0.5 * self.kld_beta * torch.mean(1 + latent_log_var - latent_mean.pow(2) - latent_log_var.exp())
+            loss += kld_loss
         return loss
 
     def forward(self, imgs, mask_ratio=0.75, force_mask=None):
-        latent, mask, ids_restore = self.forward_encoder(imgs, mask_ratio, force_mask=force_mask)
+        forward_retVal = self.forward_encoder(imgs, mask_ratio, force_mask=force_mask)
+        if self.vae:
+            latent, mask, ids_restore, latent_mean, latent_log_var = forward_retVal
+        else:
+            latent, mask, ids_restore = forward_retVal
         pred = self.forward_decoder(latent, ids_restore)  # [N, L, p*p*3]
-        loss = self.forward_loss(imgs, pred, mask)
+        if self.vae:
+            loss = self.forward_loss(imgs, pred, mask, latent_mean=latent_mean, latent_log_var=latent_log_var)
+        else:
+            loss = self.forward_loss(imgs, pred, mask)
         return loss, pred, mask
 
 
