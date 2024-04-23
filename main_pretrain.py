@@ -201,6 +201,7 @@ def main_distributed(rank, world_size, args):
         wandb_name = f'quantile_{args.quantile}'
     else:
         wandb_name = f'mse'
+    wandb_name += f"_{args.dataset}_{'_'.join(args.image_keywords) if args.image_keywords is not None else ''}"
 
     model_name = wandb_name + datetime.datetime.now().strftime("%H:%M:%S")
     wandb.init(config=args, project='pretrain_mae', name=f"model_{model_name}")
