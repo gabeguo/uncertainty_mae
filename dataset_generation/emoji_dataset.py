@@ -34,7 +34,6 @@ class EmojiDataset(Dataset):
                         continue
                 elif not all(keyword_include_status): # needs to include all desired keywords to be included
                     continue
-            print(filename, 'passed include check')
             if (self.exclude_keywords is not None): # specified keywords to exclude
                 keyword_exclude_status = [curr_keyword in filename for curr_keyword in self.exclude_keywords]
                 if self.exclude_any:
