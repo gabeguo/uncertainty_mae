@@ -7,7 +7,7 @@ python main_pretrain.py \
     --log_dir emoji_train_no_light_beta100 \
     --model mae_vit_base_patch16 \
     --epochs 20000 \
-    --log_freq 2000 \
+    --log_freq 1000 \
     --include_keywords kiss couple \
     --exclude_keywords _light_skin_tone \
     --include_any \
