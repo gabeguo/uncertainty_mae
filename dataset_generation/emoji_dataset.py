@@ -29,14 +29,17 @@ class EmojiDataset(Dataset):
         for filename in tqdm(os.listdir(self.emoji_dir)):
             if (self.include_keywords is not None): # specified keywords to include
                 keyword_include_status = [curr_keyword in filename for curr_keyword in self.include_keywords]
-                if self.include_any and (not any(keyword_include_status)): # just needs one desired keyword
-                    continue
+                if self.include_any:
+                    if (not any(keyword_include_status)): # just needs one desired keyword
+                        continue
                 elif not all(keyword_include_status): # needs to include all desired keywords to be included
                     continue
+            print(filename, 'passed include check')
             if (self.exclude_keywords is not None): # specified keywords to exclude
                 keyword_exclude_status = [curr_keyword in filename for curr_keyword in self.exclude_keywords]
-                if self.exclude_any and any(keyword_exclude_status): # can't contain any of the keywords
-                    continue
+                if self.exclude_any:
+                    if any(keyword_exclude_status): # can't contain any of the keywords
+                        continue
                 elif all(keyword_exclude_status): # must contain all to be excluded
                     continue
             filepath = os.path.join(self.emoji_dir, filename)
