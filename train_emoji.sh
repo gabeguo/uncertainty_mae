@@ -1,11 +1,14 @@
 python main_pretrain.py \
-    --data_path /home/gabe/uncertainty_mae/dataset_generation/columbia_emoji \
+    --data_path /home/gabe/uncertainty_mae/dataset_generation/columbia_emoji_full/train \
     --dataset_name emoji \
     --batch_size 64 \
     --accum_iter 1 \
-    --output_dir emoji_train_couple \
-    --log_dir emoji_train_couple \
+    --output_dir emoji_train_no_light \
+    --log_dir emoji_train_no_light \
     --model mae_vit_base_patch16 \
     --epochs 20000 \
     --log_freq 2000 \
-    --image_keywords couple
+    --include_keywords kiss couple \
+    --exclude_keywords _light_skin_tone \
+    --include_any \
+    --exclude_any

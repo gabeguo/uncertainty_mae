@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 class EmojiDataset(Dataset):
     def __init__(self, emoji_dir, include_keywords=None, exclude_keywords=None,
-                 include_any=True, exclude_any=True):
+                 include_any=False, exclude_any=False):
         self.emoji_dir = emoji_dir
         self.transform = transforms.Compose([
             transforms.Resize(224),

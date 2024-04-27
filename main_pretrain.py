@@ -82,8 +82,14 @@ def get_args_parser():
                         help='dataset path')
     parser.add_argument('--dataset_name', default='cifar', type=str,
                         help='name of dataset, either cifar, emoji, or imagenet')
-    parser.add_argument('--image_keywords', default=None, nargs='+',
-                        help='Categories of emojis you want')
+    parser.add_argument('--include_keywords', default=None, nargs='+',
+                        help='Categories of emojis you do want')
+    parser.add_argument('--exclude_keywords', default=None, nargs='+',
+                        help='Categories of emojis you dont want')
+    parser.add_argument('--include_any', action='store_true',
+                        help='do we include images that have ANY of the keywords, or ALL?')
+    parser.add_argument('--exclude_any', action='store_true',
+                        help='do we exclude images that have ANY of the keywords, or ALL?')
     
     parser.add_argument('--output_dir', default='./output_dir',
                         help='path where to save, empty for no saving')
@@ -296,7 +302,8 @@ def main(args):
     if args.dataset_name == 'cifar':
         dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train)
     elif args.dataset_name == 'emoji':
-        dataset_train = EmojiDataset(os.path.join(args.data_path, 'train'), args.image_keywords)
+        dataset_train = EmojiDataset(args.data_path, include_keywords=args.include_keywords, exclude_keywords=args.exclude_keywords,
+                                     include_any=args.include_any, exclude_any=args.exclude_any)
     else:
         dataset_train = datasets.ImageNet(args.data_path, split="train", 
             transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
