@@ -248,14 +248,17 @@ class MaskedAutoencoderViT(nn.Module):
 
         loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
         if self.vae:
-            kld_loss = -0.5 * self.kld_beta * torch.mean(1 + latent_log_var - latent_mean.pow(2) - latent_log_var.exp())
+            kld_loss = -0.5 * self.kld_beta * torch.mean(1 + latent_log_var - latent_mean.pow(2) - torch.minimum(latent_log_var.exp(), torch.full_like(latent_log_var, 1000)))
             loss += kld_loss
         return loss
 
-    def forward(self, imgs, mask_ratio=0.75, force_mask=None):
+    def forward(self, imgs, mask_ratio=0.75, force_mask=None, show_variance=False):
         forward_retVal = self.forward_encoder(imgs, mask_ratio, force_mask=force_mask)
         if self.vae:
             latent, mask, ids_restore, latent_mean, latent_log_var = forward_retVal
+            if show_variance:
+                print('mean:', torch.mean(latent_mean))
+                print('variance:', torch.mean(latent_log_var.exp()))
         else:
             latent, mask, ids_restore = forward_retVal
         pred = self.forward_decoder(latent, ids_restore)  # [N, L, p*p*3]
