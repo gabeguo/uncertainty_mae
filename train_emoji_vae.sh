@@ -3,13 +3,13 @@ python main_pretrain.py \
     --dataset_name emoji \
     --batch_size 64 \
     --accum_iter 1 \
-    --output_dir emoji_train_beta100_mask_0_9 \
-    --log_dir emoji_train_beta100_mask_0_9 \
+    --output_dir emoji_train_beta5_mask_0_75 \
+    --log_dir emoji_train_beta5_mask_0_75 \
     --model mae_vit_base_patch16 \
     --epochs 20000 \
     --log_freq 1000 \
     --include_keywords kiss_ couple_with_heart_ people_holding_hands_ \
     --include_any \
     --vae \
-    --kld_beta 100 \
-    --mask_ratio 0.9
+    --kld_beta 5 \
+    --mask_ratio 0.75
