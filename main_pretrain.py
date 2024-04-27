@@ -390,7 +390,7 @@ def main(args):
     else:
         wandb_name = f'mse'
 
-    wandb_name += f"_{args.output_dir}"
+    wandb_name += f"{'vae_' + '{:.2e}'.format(args.kld_beta) if args.vae else ''}_{args.output_dir}"
     include_clause = f"include_{'any' if args.include_any else 'all'}_{'_'.join(args.include_keywords)}" if args.include_keywords is not None else ''
     exclude_clause = f"exclude_{'any' if args.exclude_any else 'all'}_{'_'.join(args.exclude_keywords)}" if args.exclude_keywords is not None else ''
     wandb_name += f"_{args.dataset_name}_{include_clause}_{exclude_clause}"
