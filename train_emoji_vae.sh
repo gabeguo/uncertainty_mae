@@ -13,4 +13,4 @@ python main_pretrain.py \
     --include_any \
     --exclude_any \
     --vae \
-    --beta_kld 10
+    --kld_beta 10
