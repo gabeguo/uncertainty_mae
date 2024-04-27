@@ -3,8 +3,8 @@ python main_pretrain.py \
     --dataset_name emoji \
     --batch_size 64 \
     --accum_iter 1 \
-    --output_dir emoji_train_no_light \
-    --log_dir emoji_train_no_light \
+    --output_dir emoji_train_no_light_beta100 \
+    --log_dir emoji_train_no_light_beta100 \
     --model mae_vit_base_patch16 \
     --epochs 20000 \
     --log_freq 2000 \
@@ -13,4 +13,5 @@ python main_pretrain.py \
     --include_any \
     --exclude_any \
     --vae \
-    --kld_beta 10
+    --kld_beta 100 \
+    --mask_ratio 0.9
