@@ -8,13 +8,17 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 class EmojiDataset(Dataset):
-    def __init__(self, emoji_dir, keywords=None):
+    def __init__(self, emoji_dir, include_keywords=None, exclude_keywords=None,
+                 include_any=True, exclude_any=True):
         self.emoji_dir = emoji_dir
         self.transform = transforms.Compose([
             transforms.Resize(224),
             transforms.Normalize([238, 234, 231], [50, 53, 62])
         ])
-        self.keywords = keywords
+        self.include_keywords = include_keywords
+        self.exclude_keywords = exclude_keywords
+        self.include_any = include_any
+        self.exclude_any = exclude_any
         self.create_data()
 
         return
@@ -23,9 +27,18 @@ class EmojiDataset(Dataset):
         self.filenames = list()
         self.images = list()
         for filename in tqdm(os.listdir(self.emoji_dir)):
-            if (self.keywords is not None) \
-                and not any(curr_keyword in filename for curr_keyword in self.keywords):
-                continue 
+            if (self.include_keywords is not None): # specified keywords to include
+                keyword_include_status = [curr_keyword in filename for curr_keyword in self.include_keywords]
+                if self.include_any and (not any(keyword_include_status)): # just needs one desired keyword
+                    continue
+                elif not all(keyword_include_status): # needs to include all desired keywords to be included
+                    continue
+            if (self.exclude_keywords is not None): # specified keywords to exclude
+                keyword_exclude_status = [curr_keyword in filename for curr_keyword in self.exclude_keywords]
+                if self.exclude_any and any(keyword_exclude_status): # can't contain any of the keywords
+                    continue
+                elif all(keyword_exclude_status): # must contain all to be excluded
+                    continue
             filepath = os.path.join(self.emoji_dir, filename)
             assert os.path.exists(filepath)
             self.filenames.append(filepath)
