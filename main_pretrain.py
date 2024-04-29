@@ -326,7 +326,7 @@ def main(args):
 
 
     data_loader_train = torch.utils.data.DataLoader(
-        dataset_train, sampler=train_sampler, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True, drop_last=True
+        dataset_train, sampler=train_sampler, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True, drop_last=False
     )
     # why no validation?
     # data_loader_val = torch.utils.data.DataLoader(
