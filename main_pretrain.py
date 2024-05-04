@@ -207,7 +207,7 @@ def main(args):
                                                 quantile=args.quantile, vae=True, kld_beta=args.kld_beta)
         model = UncertaintyMAE(visible_mae=visible_model, invisible_mae=invisible_model)
         print('partial VAE')
-    if (args.lower is not None) and (args.median is not None) and (args.upper is not None):
+    elif (args.lower is not None) and (args.median is not None) and (args.upper is not None):
         assert 0 < args.lower < args.median < args.upper < 1
         lower_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
                                                 quantile=args.lower)
@@ -229,6 +229,7 @@ def main(args):
     # print("Model = %s" % str(model_without_ddp))
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
+    print(type(model))
     print("Model = %s" % str(model_without_ddp))
     print('number of params (M): %.2f' % (n_parameters / 1.e6))
 
