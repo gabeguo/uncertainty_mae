@@ -28,13 +28,16 @@ class UncertaintyMAE(nn.Module):
         len_remove = L - len_keep
 
         # Force Mask
-        mask_layout = torch.ones(14, 14).to(device=imgs.device)
-        mask_layout = mask_layout.flatten()
-        mask_layout[torch.multinomial(mask_layout, len_remove, replacement=False)] = 0
-        keep_indices = torch.where(mask_layout == 1)[0]
-        mask_indices = torch.where(mask_layout == 0)[0]
-        keep_indices = keep_indices.reshape(1, -1).expand(N, -1)
-        mask_indices = mask_indices.reshape(1, -1).expand(N, -1)
+        if force_mask is None:
+            mask_layout = torch.ones(14, 14).to(device=imgs.device)
+            mask_layout = mask_layout.flatten()
+            mask_layout[torch.multinomial(mask_layout, len_remove, replacement=False)] = 0
+            keep_indices = torch.where(mask_layout == 1)[0]
+            mask_indices = torch.where(mask_layout == 0)[0]
+            keep_indices = keep_indices.reshape(1, -1).expand(N, -1)
+            mask_indices = mask_indices.reshape(1, -1).expand(N, -1)
+        else:
+            keep_indices, mask_indices = force_mask
         
         ids_shuffle = torch.cat((keep_indices, mask_indices), dim=1)
         visible_latent, mask, ids_restore = self.visible_mae.forward_encoder(imgs, mask_ratio, 
