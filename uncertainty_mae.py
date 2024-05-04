@@ -22,8 +22,8 @@ class UncertaintyMAE(nn.Module):
         loss, pred, mask
         """
         # TODO: eval mode
-
-        N, L, D = imgs.shape
+        N = imgs.shape[0]
+        L = 14 * 14
         len_keep = int(L * (1 - mask_ratio))
         len_remove = L - len_keep
 
@@ -41,18 +41,23 @@ class UncertaintyMAE(nn.Module):
                                                                              force_mask=ids_shuffle)
         # call invisible encoder
         ids_reverse_shuffle = torch.cat((mask_indices, keep_indices), dim=1)
-        invisible_latent, reverse_mask, reverse_ids_restore = self.invisible_mae.forward_encoder(imgs, 1 - mask_ratio, 
-                                                                                                 force_mask=ids_reverse_shuffle)
-        assert invisible_latent.shape[1] + visible_latent.shape[1] == imgs.shape[1] + 2, \
+        invisible_latent, reverse_mask, reverse_ids_restore, latent_mean, latent_log_var = \
+              self.invisible_mae.forward_encoder(imgs, 1 - mask_ratio, force_mask=ids_reverse_shuffle)
+        assert invisible_latent.shape[1] + visible_latent.shape[1] == 14 * 14 + 2, \
             f"invisible_latent: {invisible_latent.shape}, visible latent: {visible_latent.shape}, imgs: {imgs.shape}"
         assert invisible_latent.shape[0] == visible_latent.shape[0]
         assert invisible_latent.shape[2] == visible_latent.shape[2]
-        assert torch.sum(reverse_mask) + torch.sum(mask) == 14 * 14
+        assert torch.sum(reverse_mask) + torch.sum(mask) == N * 14 * 14, f"reverse mask: {torch.sum(reverse_mask)}, {torch.sum(mask)}"
         
         # TODO: if this gets buggy, try to regenerate the real image with these indices
 
+        invisible_latent = self.invisible_mae.decoder_embed(invisible_latent) # embed for decoder
         pred = self.visible_mae.forward_decoder(visible_latent, ids_restore, force_mask_token=invisible_latent)  # [N, L, p*p*3]
-        assert pred.shape == (N, L, 3), f"pred.shape is {pred.shape}"
+        assert pred.shape == (N, L, 16 * 16 * 3), f"pred.shape is {pred.shape}"
         loss = self.visible_mae.forward_loss(imgs, pred, mask)
+
+        kld_loss = -0.5 * self.invisible_mae.kld_beta * \
+            torch.mean(1 + latent_log_var - latent_mean.pow(2) - torch.minimum(latent_log_var.exp(), torch.full_like(latent_log_var, 1000)))
+        loss += kld_loss
 
         return loss, pred, mask

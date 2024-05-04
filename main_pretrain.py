@@ -123,6 +123,9 @@ def get_args_parser():
                         help='url used to set up distributed training')
     parser.add_argument('--distributed', default=False, action='store_true',
                         help='do distributed training or no distributed training')
+    
+    # logging parameters
+    parser.add_argument('--disable_wandb', action='store_true')
                     
 
     return parser
@@ -264,7 +267,10 @@ def main(args):
     exclude_clause = f"exclude_{'any' if args.exclude_any else 'all'}_{'_'.join(args.exclude_keywords)}" if args.exclude_keywords is not None else ''
     wandb_name += f"_{args.dataset_name}_{include_clause}_{exclude_clause}"
 
-    wandb.init(config=args, project='pretrain_mae', name=f"model_{wandb_name}")
+    if args.disable_wandb:
+        wandb.init(mode='disabled')
+    else:
+        wandb.init(config=args, project='pretrain_mae', name=f"model_{wandb_name}")
     wandb.watch(model)
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
