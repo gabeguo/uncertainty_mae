@@ -198,7 +198,7 @@ class MaskedAutoencoderViT(nn.Module):
 
         return x, mask, ids_restore
 
-    def forward_decoder(self, x, ids_restore):
+    def forward_decoder(self, x, ids_restore, force_mask_token=None):
         # embed tokens
         x = self.decoder_embed(x)
 
@@ -207,7 +207,11 @@ class MaskedAutoencoderViT(nn.Module):
         # print('ids restore shape', ids_restore.shape)
 
         # append mask tokens to sequence
-        mask_tokens = self.mask_token.repeat(x.shape[0], ids_restore.shape[1] + 1 - x.shape[1], 1)
+        if force_mask_token is None:
+            mask_tokens = self.mask_token.repeat(x.shape[0], ids_restore.shape[1] + 1 - x.shape[1], 1)
+        else:
+            # we expect the encoding of the masked (peeked at) tokens from the other encoder
+            mask_tokens = force_mask_token[:, 1:, :] # no cls token from masked encoding
         x_ = torch.cat([x[:, 1:, :], mask_tokens], dim=1)  # no cls token
         x_ = torch.gather(x_, dim=1, index=ids_restore.unsqueeze(-1).repeat(1, 1, x.shape[2]))  # unshuffle
         x = torch.cat([x[:, :1, :], x_], dim=1)  # append cls token
@@ -261,6 +265,11 @@ class MaskedAutoencoderViT(nn.Module):
                 print('variance:', torch.mean(latent_log_var.exp()))
         else:
             latent, mask, ids_restore = forward_retVal
+        # print('latent:', latent.shape)
+        # print('mask:', mask)
+        # print('mask shape:', mask.shape)
+        # print('ids_restore:', ids_restore)
+        # print('ids_restore shape:', ids_restore.shape)
         pred = self.forward_decoder(latent, ids_restore)  # [N, L, p*p*3]
         if self.vae:
             loss = self.forward_loss(imgs, pred, mask, latent_mean=latent_mean, latent_log_var=latent_log_var)
