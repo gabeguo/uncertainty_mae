@@ -64,7 +64,7 @@ class UncertaintyMAE(nn.Module):
 
         if self.training:
             kld_loss = -0.5 * self.invisible_mae.kld_beta * \
-                torch.mean(1 + latent_log_var - latent_mean.pow(2) - torch.minimum(latent_log_var.exp(), torch.full_like(latent_log_var, 1000)))
+                torch.mean(1 + latent_log_var - latent_mean.pow(2) - torch.minimum(latent_log_var.exp(), torch.full_like(latent_log_var, 100)))
             loss += kld_loss
 
         return loss, pred, mask
