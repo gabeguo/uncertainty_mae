@@ -26,6 +26,7 @@ import torch.multiprocessing as mp
 
 import models_mae
 from multi_head_mae import MultiHeadMAE
+from uncertainty_mae import UncertaintyMAE
 
 from engine_pretrain import train_one_epoch
 from dataset_generation.emoji_dataset import EmojiDataset
@@ -41,6 +42,8 @@ def get_args_parser():
                         help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
 
     # Model parameters
+    parser.add_argument('--partial_vae', action='store_true',
+                        help='Whether to use a regular MAE on the visible patches, and VAE on invisible patches')
     parser.add_argument('--model', default='mae_vit_large_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
     parser.add_argument('--input_size', default=224, type=int,
@@ -123,148 +126,6 @@ def get_args_parser():
                     
 
     return parser
-"""
-def main_distributed(rank, world_size, args):
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12355'
-    dist.init_process_group('nccl', init_method=args.dist_url, rank=rank, world_size=world_size)
-
-    device = torch.device(f"cuda:{rank + 4}")  # Use the last 4 GPUs (4, 5, 6, 7)
-    torch.cuda.set_device(device)  # Set the current device for this process
-    seed = args.seed + rank
-
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.amp.autocast(enabled=False)
-    cudnn.benchmark = True
-
-    transform_train = transforms.Compose([
-            transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
-    transform_val = transforms.Compose([
-            transforms.Resize(256, interpolation=3),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
-
-    dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train) if args.dataset_name == 'cifar' else datasets.ImageNet(args.data_path, split="train", transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
-    # dataset_val = datasets.CIFAR100('../data', train=False, download=True, transform=transform_val)
-    
-    train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train, num_replicas=world_size, rank=rank, shuffle=True)
-
-    data_loader_train = torch.utils.data.DataLoader(dataset_train, sampler=train_sampler, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True, drop_last=True)
-    # data_loader_val = torch.utils.data.DataLoader(dataset_val, sampler=val_sampler, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True, drop_last=False)
-
-    
-    if rank == 0 and args.log_dir is not None:
-        os.makedirs(args.log_dir, exist_ok=True)
-        log_writer = SummaryWriter(log_dir=args.log_dir)
-    else:
-        log_writer = None
-
-    # define the model
-    if (args.lower is not None) and (args.median is not None) and (args.upper is not None):
-        assert 0 < args.lower < args.median < args.upper < 1
-        lower_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
-                                                quantile=args.lower)
-        median_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
-                                                quantile=args.median)
-        upper_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
-                                                quantile=args.upper)
-        model = MultiHeadMAE(lower_mae=lower_model, median_mae=median_model, upper_mae=upper_model)
-        print('create multi-head decoder')
-    else:
-        assert (args.quantile is None) or (args.quantile > 0 and args.quantile < 1)
-        model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
-                                                quantile=args.quantile)
-        print('create point model')
-
-    model.to(device)
-
-    model_without_ddp = model
-    n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-    # print("Model = %s" % str(model_without_ddp))
-    # print('number of params (M): %.2f' % (n_parameters / 1.e6))
-
-    eff_batch_size = args.batch_size * args.accum_iter * world_size
-    
-    if args.lr is None:  # only base_lr is specified
-        args.lr = args.blr * eff_batch_size / 256
-
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank + 4])
-    model_without_ddp = model.module
-    
-    # following timm: set wd as 0 for bias and norm layers
-    param_groups = optim_factory.add_weight_decay(model_without_ddp, args.weight_decay)
-    optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95))
-    # print(optimizer)
-    loss_scaler = NativeScaler()
-
-    misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
-
-    if (args.lower and args.median and args.upper):
-        wandb_name = f'multiDecoder_{args.lower}_{args.median}_{args.upper}'
-    elif args.quantile:
-        wandb_name = f'quantile_{args.quantile}'
-    else:
-        wandb_name = f'mse'
-    wandb_name += f"_{args.dataset}_{'_'.join(args.image_keywords) if args.image_keywords is not None else ''}"
-
-    model_name = wandb_name + datetime.datetime.now().strftime("%H:%M:%S")
-    wandb.init(config=args, project='pretrain_mae', name=f"model_{model_name}")
-    wandb.watch(model)
-    if rank == 0:
-        print(f"Start training for {args.epochs} epochs")
-    start_time = time.time()
-
-    for epoch in range(args.start_epoch, args.epochs):
-        
-        data_loader_train.sampler.set_epoch(epoch)
-        train_stats = train_one_epoch(
-            model, data_loader_train,
-            optimizer, device, epoch, loss_scaler,
-            1.0, # Added this part
-            log_writer=log_writer,
-            args=args
-        )
-        if args.output_dir and (epoch % args.log_freq == 0 or epoch + 1 == args.epochs):
-            misc.save_model(
-                args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
-                loss_scaler=loss_scaler, epoch=epoch)
-
-        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                        'epoch': epoch,}
-        wandb.log(log_stats, step=epoch)
-
-        if args.output_dir and misc.is_main_process():
-            if log_writer is not None:
-                log_writer.flush()
-            with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
-                f.write(json.dumps(log_stats) + "\n")
-
-    total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print('Training time {}'.format(total_time_str))
-
-    from thop import profile, clever_format  # run pip3 install thop for this, i don't think it was in the original requirements.txt
-
-    if rank == 0:
-        dummy_input = torch.rand(1, 3, 224, 224).to(device)  # should give a good estimate of the model's complexity
-        flops, params = profile(model, inputs=(dummy_input,))
-        flops, params = clever_format([flops, params], "%.3f")
-        print(f"FLOPs: {flops}, Params: {params}")
-
-    log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                       **{f'test_{k}': v for k, v in test_stats.items()},
-                        'epoch': epoch,
-                        'n_parameters': n_parameters, 
-                        'flops': flops,
-                        'runtime': total_time_str}
-    wandb.log(log_stats)
-"""
 
 def main(args):
     
@@ -339,6 +200,13 @@ def main(args):
         log_writer = None
 
     # define the model
+    if args.partial_vae:
+        visible_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
+                                                quantile=args.quantile, vae=False, kld_beta=0)
+        invisible_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
+                                                quantile=args.quantile, vae=True, kld_beta=args.kld_beta)
+        model = UncertaintyMAE(visible_mae=visible_model, invisible_mae=invisible_model)
+        print('partial VAE')
     if (args.lower is not None) and (args.median is not None) and (args.upper is not None):
         assert 0 < args.lower < args.median < args.upper < 1
         lower_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
@@ -434,9 +302,4 @@ if __name__ == '__main__':
     args = args.parse_args()
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-    print("Distributed?", args.distributed)
-    if args.distributed:
-        world_size = 4  # Use only the last 4 GPUs
-        mp.spawn(main_distributed, args=(world_size, args), nprocs=world_size, join=True)
-    else:
-        main(args)
+    main(args)
