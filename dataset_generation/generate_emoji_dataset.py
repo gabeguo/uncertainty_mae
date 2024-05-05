@@ -18,7 +18,7 @@ def plot_emoji(emoji_name, output_folder, width, height):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--output_dir', default='columbia_emoji', type=str)
-    parser.add_argument('--train_percent', default=0.9)
+    parser.add_argument('--train_percent', default=0.9, type=float)
     args = parser.parse_args()
 
     train_dir = os.path.join(args.output_dir, 'train')
