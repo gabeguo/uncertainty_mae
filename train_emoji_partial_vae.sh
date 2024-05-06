@@ -1,11 +1,11 @@
 python main_pretrain.py \
     --data_path /home/gzg2104/uncertainty_mae/dataset_generation/columbia_emoji/train \
     --dataset_name emoji \
-    --batch_size 256 \
+    --batch_size 128 \
     --accum_iter 1 \
-    --output_dir emoji_train_partial_vae_scaleUp \
-    --log_dir emoji_train_partial_vae_scaleUp \
-    --model mae_vit_base_patch16 \
+    --output_dir emoji_train_partial_vae_largeMAE \
+    --log_dir emoji_train_partial_vae_largeMAE \
+    --model mae_vit_large_patch16 \
     --epochs 4000 \
     --log_freq 200 \
     --vae \
