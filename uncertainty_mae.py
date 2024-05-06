@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
 from models_mae import MaskedAutoencoderViT
+import random
 
 class UncertaintyMAE(nn.Module):
-    def __init__(self, visible_mae, invisible_mae):
+    def __init__(self, visible_mae, invisible_mae, dropout_ratio=0.4):
         super().__init__()
 
         assert isinstance(visible_mae, MaskedAutoencoderViT)
@@ -13,6 +14,8 @@ class UncertaintyMAE(nn.Module):
 
         self.visible_mae = visible_mae
         self.invisible_mae = invisible_mae
+
+        self.dropout_ratio = dropout_ratio
 
         return
     
@@ -42,8 +45,8 @@ class UncertaintyMAE(nn.Module):
         ids_shuffle = torch.cat((keep_indices, mask_indices), dim=1)
         visible_latent, mask, ids_restore = self.visible_mae.forward_encoder(imgs, mask_ratio, force_mask=ids_shuffle)
 
-        if self.training: 
-            # call invisible encoder
+        # use invisible encoder
+        if self.training and random.random() > self.dropout_ratio: 
             ids_reverse_shuffle = torch.cat((mask_indices, keep_indices), dim=1)
             invisible_latent, reverse_mask, reverse_ids_restore, latent_mean, latent_log_var = \
                 self.invisible_mae.forward_encoder(imgs, 1 - mask_ratio, force_mask=ids_reverse_shuffle)
@@ -52,6 +55,7 @@ class UncertaintyMAE(nn.Module):
             assert invisible_latent.shape[0] == visible_latent.shape[0]
             assert invisible_latent.shape[2] == visible_latent.shape[2]
             assert torch.sum(reverse_mask) + torch.sum(mask) == N * 14 * 14, f"reverse mask: {torch.sum(reverse_mask)}, {torch.sum(mask)}"
+        # use random noise, to make more robust
         else:
             invisible_num_tokens = 14 * 14 + 2 - visible_latent.shape[1]
             invisible_latent = torch.randn(visible_latent.shape[0], invisible_num_tokens, visible_latent.shape[2],

@@ -65,6 +65,8 @@ def get_args_parser():
                         help='is this a vae?')
     parser.add_argument('--kld_beta', default=1, type=float,
                         help='Beta term if using VAE')
+    parser.add_argument('--dropout_ratio', default=0.4, type=float,
+                        help='How often to ignore the invisible encoder')
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
@@ -208,7 +210,7 @@ def main(args):
                                                 quantile=args.quantile, vae=False, kld_beta=0)
         invisible_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
                                                 quantile=args.quantile, vae=True, kld_beta=args.kld_beta)
-        model = UncertaintyMAE(visible_mae=visible_model, invisible_mae=invisible_model)
+        model = UncertaintyMAE(visible_mae=visible_model, invisible_mae=invisible_model, dropout_ratio=args.dropout_ratio)
         print('partial VAE')
     elif (args.lower is not None) and (args.median is not None) and (args.upper is not None):
         assert 0 < args.lower < args.median < args.upper < 1
