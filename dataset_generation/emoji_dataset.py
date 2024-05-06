@@ -44,11 +44,11 @@ class EmojiDataset(Dataset):
             filepath = os.path.join(self.emoji_dir, filename)
             assert os.path.exists(filepath)
             self.filenames.append(filepath)
-            self.images.append(read_image(filepath).to(dtype=torch.float32))
+            self.images.append(self.transform(read_image(filepath).to(dtype=torch.float32)))
         return
 
     def __len__(self):
         return len(self.images)
 
     def __getitem__(self, idx):
-        return self.transform(self.images[idx]), 0
+        return self.images[idx], 0
