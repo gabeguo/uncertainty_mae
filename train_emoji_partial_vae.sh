@@ -6,8 +6,8 @@ python main_pretrain.py \
     --output_dir emoji_train_partial_vae_fullDataset_largeMAE \
     --log_dir emoji_train_partial_vae_fullDataset_largeMAE \
     --model mae_vit_large_patch16 \
-    --epochs 4000 \
-    --log_freq 250 \
+    --epochs 2000 \
+    --log_freq 100 \
     --vae \
     --kld_beta 10 \
     --mask_ratio 0.75 \
