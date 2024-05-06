@@ -5,7 +5,7 @@ python main_pretrain.py \
     --accum_iter 1 \
     --output_dir emoji_train_partial_vae_fullDataset_largeMAE \
     --log_dir emoji_train_partial_vae_fullDataset_largeMAE \
-    --model mae_vit_large_patch16 \
+    --model mae_vit_base_patch16 \
     --epochs 2000 \
     --log_freq 100 \
     --vae \
