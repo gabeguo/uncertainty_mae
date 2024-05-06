@@ -4,7 +4,7 @@ from models_mae import MaskedAutoencoderViT
 import random
 
 class UncertaintyMAE(nn.Module):
-    def __init__(self, visible_mae, invisible_mae, dropout_ratio=0.4):
+    def __init__(self, visible_mae, invisible_mae, dropout_ratio=0):
         super().__init__()
 
         assert isinstance(visible_mae, MaskedAutoencoderViT)
@@ -50,6 +50,8 @@ class UncertaintyMAE(nn.Module):
             ids_reverse_shuffle = torch.cat((mask_indices, keep_indices), dim=1)
             invisible_latent, reverse_mask, reverse_ids_restore, latent_mean, latent_log_var = \
                 self.invisible_mae.forward_encoder(imgs, 1 - mask_ratio, force_mask=ids_reverse_shuffle)
+            # print('mean:', torch.mean(latent_mean), torch.std(latent_mean))
+            # print('std:', torch.mean(latent_log_var.exp()), torch.std(latent_log_var.exp()))
             assert invisible_latent.shape[1] + visible_latent.shape[1] == 14 * 14 + 2, \
                 f"invisible_latent: {invisible_latent.shape}, visible latent: {visible_latent.shape}, imgs: {imgs.shape}"
             assert invisible_latent.shape[0] == visible_latent.shape[0]

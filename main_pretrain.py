@@ -65,7 +65,7 @@ def get_args_parser():
                         help='is this a vae?')
     parser.add_argument('--kld_beta', default=1, type=float,
                         help='Beta term if using VAE')
-    parser.add_argument('--dropout_ratio', default=0.4, type=float,
+    parser.add_argument('--dropout_ratio', default=0, type=float,
                         help='How often to ignore the invisible encoder')
 
     # Optimizer parameters
