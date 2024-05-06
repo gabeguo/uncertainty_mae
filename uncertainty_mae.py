@@ -55,11 +55,14 @@ class UncertaintyMAE(nn.Module):
             assert invisible_latent.shape[0] == visible_latent.shape[0]
             assert invisible_latent.shape[2] == visible_latent.shape[2]
             assert torch.sum(reverse_mask) + torch.sum(mask) == N * 14 * 14, f"reverse mask: {torch.sum(reverse_mask)}, {torch.sum(mask)}"
+            kld_loss = -0.5 * self.invisible_mae.kld_beta * \
+                torch.mean(1 + latent_log_var - latent_mean.pow(2) - torch.minimum(latent_log_var.exp(), torch.full_like(latent_log_var, 100)))
         # use random noise, to make more robust
         else:
             invisible_num_tokens = 14 * 14 + 2 - visible_latent.shape[1]
             invisible_latent = torch.randn(visible_latent.shape[0], invisible_num_tokens, visible_latent.shape[2],
                                            device=visible_latent.device)
+            kld_loss = 0
         # TODO: if this gets buggy, try to regenerate the real image with these indices
         invisible_latent = self.invisible_mae.decoder_embed(invisible_latent) # embed for decoder
         pred = self.visible_mae.forward_decoder(visible_latent, ids_restore, force_mask_token=invisible_latent)  # [N, L, p*p*3]
@@ -67,8 +70,6 @@ class UncertaintyMAE(nn.Module):
         loss = self.visible_mae.forward_loss(imgs, pred, mask)
 
         if self.training:
-            kld_loss = -0.5 * self.invisible_mae.kld_beta * \
-                torch.mean(1 + latent_log_var - latent_mean.pow(2) - torch.minimum(latent_log_var.exp(), torch.full_like(latent_log_var, 100)))
             loss += kld_loss
 
         return loss, pred, mask
