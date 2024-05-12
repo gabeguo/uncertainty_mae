@@ -2,7 +2,7 @@ python main_pretrain.py \
     --data_path /home/gzg2104/uncertainty_mae/dataset_generation/columbia_emoji/train \
     --dataset_name emoji \
     --batch_size 128 \
-    --blr 2.5e-4 \
+    --blr 1e-4 \
     --accum_iter 1 \
     --output_dir emoji_train_partial_vae_largeMAE \
     --log_dir emoji_train_partial_vae_largeMAE \
