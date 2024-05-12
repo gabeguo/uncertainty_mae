@@ -209,7 +209,7 @@ def main(args):
         visible_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
                                                 quantile=args.quantile, vae=False, kld_beta=0)
         invisible_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
-                                                quantile=args.quantile, vae=True, kld_beta=args.kld_beta)
+                                                quantile=args.quantile, vae=args.vae, kld_beta=args.kld_beta)
         model = UncertaintyMAE(visible_mae=visible_model, invisible_mae=invisible_model, dropout_ratio=args.dropout_ratio)
         print('partial VAE')
     elif (args.lower is not None) and (args.median is not None) and (args.upper is not None):
@@ -307,6 +307,7 @@ def main(args):
     print('Training time {}'.format(total_time_str))
 
 if __name__ == '__main__':
+    torch.autograd.set_detect_anomaly(True)
     args = get_args_parser()
     args = args.parse_args()
     if args.output_dir:
