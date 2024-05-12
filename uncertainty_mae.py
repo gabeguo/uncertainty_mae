@@ -9,7 +9,8 @@ class UncertaintyMAE(nn.Module):
 
         assert isinstance(visible_mae, MaskedAutoencoderViT)
         assert isinstance(invisible_mae, MaskedAutoencoderViT)
-        assert invisible_mae.vae # should be variational
+        print(f'invisible mae is VAE: {invisible_mae.vae}')
+        # assert invisible_mae.vae # should be variational
         assert not visible_mae.vae # should not be variational
 
         self.visible_mae = visible_mae
@@ -48,8 +49,12 @@ class UncertaintyMAE(nn.Module):
         # use invisible encoder
         if self.training and random.random() > self.dropout_ratio: 
             ids_reverse_shuffle = torch.cat((mask_indices, keep_indices), dim=1)
-            invisible_latent, reverse_mask, reverse_ids_restore, latent_mean, latent_log_var = \
-                self.invisible_mae.forward_encoder(imgs, 1 - mask_ratio, force_mask=ids_reverse_shuffle)
+            if self.invisible_mae.vae:
+                invisible_latent, reverse_mask, reverse_ids_restore, latent_mean, latent_log_var = \
+                    self.invisible_mae.forward_encoder(imgs, 1 - mask_ratio, force_mask=ids_reverse_shuffle)
+            else:
+                invisible_latent, reverse_mask, reverse_ids_restore = \
+                    self.invisible_mae.forward_encoder(imgs, 1 - mask_ratio, force_mask=ids_reverse_shuffle)
             # print('mean:', torch.mean(latent_mean), torch.std(latent_mean))
             # print('std:', torch.mean(latent_log_var.exp()), torch.std(latent_log_var.exp()))
             assert invisible_latent.shape[1] + visible_latent.shape[1] == 14 * 14 + 2, \
@@ -57,8 +62,12 @@ class UncertaintyMAE(nn.Module):
             assert invisible_latent.shape[0] == visible_latent.shape[0]
             assert invisible_latent.shape[2] == visible_latent.shape[2]
             assert torch.sum(reverse_mask) + torch.sum(mask) == N * 14 * 14, f"reverse mask: {torch.sum(reverse_mask)}, {torch.sum(mask)}"
-            kld_loss = -0.5 * self.invisible_mae.kld_beta * \
-                torch.mean(1 + latent_log_var - latent_mean.pow(2) - torch.minimum(latent_log_var.exp(), torch.full_like(latent_log_var, 100)))
+            if self.invisible_mae.vae:
+                kld_loss = -0.5 * self.invisible_mae.kld_beta * \
+                    torch.mean(1 + latent_log_var - latent_mean.pow(2) - torch.minimum(latent_log_var.exp(), torch.full_like(latent_log_var, 100)))
+            else:
+                # add L2 penalty on latent code
+                kld_loss = self.invisible_mae.kld_beta * torch.mean(invisible_latent.pow(2))
         # use random noise, to make more robust
         else:
             invisible_num_tokens = 14 * 14 + 2 - visible_latent.shape[1]

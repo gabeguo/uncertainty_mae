@@ -1,0 +1,14 @@
+python main_pretrain.py \
+    --data_path /home/gzg2104/uncertainty_mae/dataset_generation/columbia_emoji/train \
+    --dataset_name emoji \
+    --batch_size 128 \
+    --accum_iter 1 \
+    --output_dir emoji_train_invisible_encoder_largeMAE \
+    --log_dir emoji_train_invisible_encoder_largeMAE \
+    --model mae_vit_large_patch16 \
+    --epochs 4000 \
+    --log_freq 200 \
+    --kld_beta 1 \
+    --mask_ratio 0.75 \
+    --partial_vae \
+    --dropout_ratio 0
