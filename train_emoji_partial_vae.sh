@@ -4,8 +4,8 @@ python main_pretrain.py \
     --batch_size 128 \
     --blr 1e-4 \
     --accum_iter 1 \
-    --output_dir emoji_train_partial_vae_largeMAE \
-    --log_dir emoji_train_partial_vae_largeMAE \
+    --output_dir /local/zemel/gzg2104/emoji_train_partial_vae_largeMAE \
+    --log_dir /local/zemel/gzg2104/emoji_train_partial_vae_largeMAE \
     --model mae_vit_large_patch16 \
     --epochs 4000 \
     --log_freq 200 \
