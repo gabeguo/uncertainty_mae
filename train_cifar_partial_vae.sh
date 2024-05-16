@@ -1,10 +1,10 @@
 python main_pretrain.py \
     --dataset_name cifar \
     --batch_size 128 \
-    --blr 1e-4 \
+    --blr 5e-5 \
     --accum_iter 1 \
-    --output_dir /local/zemel/gzg2104/cifar_train_partial_vae \
-    --log_dir /local/zemel/gzg2104/cifar_train_partial_vae \
+    --output_dir /local/zemel/gzg2104/cifar_train_partial_vae_lr_5e-5 \
+    --log_dir /local/zemel/gzg2104/cifar_train_partial_vae_lr_5e-5 \
     --model mae_vit_large_patch16 \
     --epochs 600 \
     --log_freq 40 \
