@@ -6,8 +6,7 @@ python main_pretrain.py \
     --accum_iter 1 \
     --output_dir /local/zemel/gzg2104/emoji_train_partial_vae_separate_mean_var \
     --log_dir /local/zemel/gzg2104/emoji_train_partial_vae_separate_mean_var \
-    --model_visible mae_vit_large_patch16 \
-    --model_invisible mae_vit_base_patch16 \
+    --model mae_vit_base_patch16 \
     --epochs 4000 \
     --log_freq 200 \
     --vae \

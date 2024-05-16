@@ -44,9 +44,7 @@ def get_args_parser():
     # Model parameters
     parser.add_argument('--partial_vae', action='store_true',
                         help='Whether to use a regular MAE on the visible patches, and VAE on invisible patches')
-    parser.add_argument('--model_visible', default='mae_vit_large_patch16', type=str, metavar='MODEL',
-                        help='Name of model to train')
-    parser.add_argument('--model_invisible', default='mae_vit_large_patch16', type=str, metavar='MODEL',
+    parser.add_argument('--model', default='mae_vit_large_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
     parser.add_argument('--input_size', default=224, type=int,
                         help='images input size')
@@ -206,11 +204,11 @@ def main(args):
 
     # define the model
     if args.partial_vae:
-        visible_model = models_mae.__dict__[args.model_visible](norm_pix_loss=args.norm_pix_loss, 
+        visible_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
                                                 quantile=args.quantile, vae=False, kld_beta=0)
-        invisible_model_mean = models_mae.__dict__[args.model_invisible](norm_pix_loss=args.norm_pix_loss, 
+        invisible_model_mean = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
                                                 quantile=args.quantile, vae=False, kld_beta=args.kld_beta)
-        invisible_model_log_var = models_mae.__dict__[args.model_invisible](norm_pix_loss=args.norm_pix_loss, 
+        invisible_model_log_var = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
                                                 quantile=args.quantile, vae=False, kld_beta=args.kld_beta)
         model = UncertaintyMAE(visible_mae=visible_model, invisible_mae_mean=invisible_model_mean,
                                invisible_mae_log_var=invisible_model_log_var, kld_beta=args.kld_beta)
