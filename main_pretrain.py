@@ -208,10 +208,10 @@ def main(args):
                                                 quantile=args.quantile, vae=False, kld_beta=0)
         invisible_model_mean = models_mae.__dict__[args.invisible_model](norm_pix_loss=args.norm_pix_loss, 
                                                 quantile=args.quantile, vae=False, kld_beta=args.kld_beta)
-        invisible_model_std = models_mae.__dict__[args.invisible_model](norm_pix_loss=args.norm_pix_loss, 
+        invisible_model_log_var = models_mae.__dict__[args.invisible_model](norm_pix_loss=args.norm_pix_loss, 
                                                 quantile=args.quantile, vae=False, kld_beta=args.kld_beta)
         model = UncertaintyMAE(visible_mae=visible_model, invisible_mae_mean=invisible_model_mean,
-                               invisible_mae_std=invisible_model_std, kld_beta=args.kld_beta)
+                               invisible_mae_log_var=invisible_model_log_var, kld_beta=args.kld_beta)
         print('partial VAE')
     elif (args.lower is not None) and (args.median is not None) and (args.upper is not None):
         assert 0 < args.lower < args.median < args.upper < 1
