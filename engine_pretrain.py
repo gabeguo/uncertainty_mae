@@ -44,22 +44,28 @@ def train_one_epoch(model: torch.nn.Module,
 
         samples = samples.to(device, non_blocking=True)
 
-        with torch.cuda.amp.autocast():
-            loss, _, _ = model(samples, mask_ratio=args.mask_ratio)
+        # with torch.cuda.amp.autocast():
+        loss, _, _ = model(samples, mask_ratio=args.mask_ratio)
 
         loss_value = loss.item()
 
         if not math.isfinite(loss_value):
             print("Loss is {}, stopping training".format(loss_value))
+            # for name, param in model.named_parameters():
+            #     if param.requires_grad:
+            #         print(name, param.grad)
+            #         print('has nan grad', any(torch.isnan(param.grad).flatten().tolist()))
             raise ValueError("Loss is {}, stopping training".format(loss_value))
         # else:
         #     print("Loss is {}, continue training".format(loss_value))
 
         loss /= accum_iter
-        loss_scaler(loss, optimizer, clip_grad=max_norm,
-                    parameters=model.parameters(),
-                    update_grad=(data_iter_step + 1) % accum_iter == 0)
+        loss.backward()
+        # loss_scaler(loss, optimizer, clip_grad=max_norm,
+        #             parameters=model.parameters(),
+        #             update_grad=(data_iter_step + 1) % accum_iter == 0)
         if (data_iter_step + 1) % accum_iter == 0:
+            optimizer.step()
             optimizer.zero_grad()
 
         torch.cuda.synchronize()
