@@ -44,8 +44,11 @@ def train_one_epoch(model: torch.nn.Module,
 
         samples = samples.to(device, non_blocking=True)
 
-        # with torch.cuda.amp.autocast():
-        loss, _, _ = model(samples, mask_ratio=args.mask_ratio)
+        if args.mixed_precision:
+            with torch.cuda.amp.autocast():
+                loss, _, _ = model(samples, mask_ratio=args.mask_ratio)
+        else:
+            loss, _, _ = model(samples, mask_ratio=args.mask_ratio)
 
         loss_value = loss.item()
 
@@ -60,12 +63,15 @@ def train_one_epoch(model: torch.nn.Module,
         #     print("Loss is {}, continue training".format(loss_value))
 
         loss /= accum_iter
-        loss.backward()
-        # loss_scaler(loss, optimizer, clip_grad=max_norm,
-        #             parameters=model.parameters(),
-        #             update_grad=(data_iter_step + 1) % accum_iter == 0)
+        if args.mixed_precision:
+            loss_scaler(loss, optimizer, clip_grad=max_norm,
+                        parameters=model.parameters(),
+                        update_grad=(data_iter_step + 1) % accum_iter == 0)
+        else:
+            loss.backward()
         if (data_iter_step + 1) % accum_iter == 0:
-            optimizer.step()
+            if (not args.mixed_precision): # loss scaler didn't weight update in full precision
+                optimizer.step()
             optimizer.zero_grad()
 
         torch.cuda.synchronize()

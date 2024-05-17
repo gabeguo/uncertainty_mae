@@ -73,6 +73,8 @@ def get_args_parser():
                         help='weight decay (default: 0.05)')
     parser.add_argument('--eps', type=float, default=1e-8,
                         help='AdamW epsilon (default: 1e-8)')
+    parser.add_argument('--mixed_precision', action='store_true',
+                        help='Whether to mix between fp16 and fp32')
 
     parser.add_argument('--lr', type=float, default=None, metavar='LR',
                         help='learning rate (absolute lr)')
