@@ -71,6 +71,8 @@ def get_args_parser():
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
                         help='weight decay (default: 0.05)')
+    parser.add_argument('--eps', type=float, default=1e-8,
+                        help='AdamW epsilon (default: 1e-8)')
 
     parser.add_argument('--lr', type=float, default=None, metavar='LR',
                         help='learning rate (absolute lr)')
@@ -251,7 +253,7 @@ def main(args):
     
     # following timm: set wd as 0 for bias and norm layers
     param_groups = optim_factory.add_weight_decay(model_without_ddp, args.weight_decay)
-    optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95))
+    optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95), eps=args.eps)
     print(optimizer)
     loss_scaler = NativeScaler()
 

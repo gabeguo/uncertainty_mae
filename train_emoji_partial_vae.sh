@@ -4,8 +4,8 @@ python main_pretrain.py \
     --batch_size 128 \
     --blr 5e-4 \
     --accum_iter 1 \
-    --output_dir /local/zemel/gzg2104/emoji_train_partial_vae_no_mixed_precision_lr_5e-4 \
-    --log_dir /local/zemel/gzg2104/emoji_train_partial_vae_no_mixed_precision_lr_5e-4 \
+    --output_dir /local/zemel/gzg2104/emoji_train_partial_vae_no_mixed_precision_eps_1e-4 \
+    --log_dir /local/zemel/gzg2104/emoji_train_partial_vae_no_mixed_precision_eps_1e-4 \
     --model mae_vit_large_patch16 \
     --warmup_epochs 40 \
     --epochs 4000 \
@@ -14,4 +14,5 @@ python main_pretrain.py \
     --kld_beta 20 \
     --mask_ratio 0.75 \
     --partial_vae \
-    --dropout_ratio 0
+    --dropout_ratio 0 \
+    --eps 1e-4
