@@ -1,12 +1,12 @@
 python main_pretrain.py \
     --data_path /home/gzg2104/uncertainty_mae/dataset_generation/columbia_emoji/train \
     --dataset_name emoji \
-    --batch_size 128 \
+    --batch_size 256 \
     --blr 1e-3 \
     --accum_iter 1 \
-    --output_dir /local/zemel/gzg2104/emoji_train_partial_vae_mixed_precision_blr_1e-3 \
-    --log_dir /local/zemel/gzg2104/emoji_train_partial_vae_mixed_precision_blr_1e-3 \
-    --model mae_vit_large_patch16 \
+    --output_dir /local/zemel/gzg2104/emoji_train_partial_vae_mixed_precision_base_vit_batch_size_256 \
+    --log_dir /local/zemel/gzg2104/emoji_train_partial_vae_mixed_precision_base_vit_batch_size_256 \
+    --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
     --epochs 4000 \
     --log_freq 200 \
