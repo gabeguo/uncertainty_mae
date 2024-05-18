@@ -1,15 +1,19 @@
 python main_pretrain.py \
     --dataset_name cifar \
-    --batch_size 128 \
-    --blr 5e-5 \
+    --batch_size 256 \
+    --blr 1e-3 \
     --accum_iter 1 \
-    --output_dir /local/zemel/gzg2104/cifar_train_partial_vae_lr_5e-5 \
-    --log_dir /local/zemel/gzg2104/cifar_train_partial_vae_lr_5e-5 \
-    --model mae_vit_large_patch16 \
+    --output_dir /local/zemel/gzg2104/cifar_train_partial_vae_base_vit_batch_256_beta_10 \
+    --log_dir /local/zemel/gzg2104/cifar_train_partial_vae_base_vit_batch_256_beta_10 \
+    --model mae_vit_base_patch16 \
+    --warmup_epochs 40 \
     --epochs 600 \
     --log_freq 40 \
     --vae \
-    --kld_beta 20 \
+    --kld_beta 10 \
     --mask_ratio 0.75 \
     --partial_vae \
-    --dropout_ratio 0
+    --dropout_ratio 0 \
+    --eps 1e-4 \
+    --weight_decay 0.1 \
+    --mixed_precision
