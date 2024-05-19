@@ -3,8 +3,8 @@ python main_pretrain.py \
     --batch_size 256 \
     --blr 1e-3 \
     --accum_iter 1 \
-    --output_dir /local/zemel/gzg2104/cifar_train_partial_vae_base_vit_batch_256_beta_5_epochs_800 \
-    --log_dir /local/zemel/gzg2104/cifar_train_partial_vae_base_vit_batch_256_beta_5_epochs_800 \
+    --output_dir /local/zemel/gzg2104/cifar_train_partial_vae_base_vit_batch_256_beta_5_epochs_800_decay_0_05 \
+    --log_dir /local/zemel/gzg2104/cifar_train_partial_vae_base_vit_batch_256_beta_5_epochs_800_decay_0_05 \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
     --epochs 800 \
