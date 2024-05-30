@@ -16,6 +16,7 @@ import torch
 
 import util.misc as misc
 import util.lr_sched as lr_sched
+from uncertainty_mae import UncertaintyMAE
 
 
 def train_one_epoch(model: torch.nn.Module,
@@ -46,9 +47,17 @@ def train_one_epoch(model: torch.nn.Module,
 
         if args.mixed_precision:
             with torch.cuda.amp.autocast():
-                loss, _, _ = model(samples, mask_ratio=args.mask_ratio)
+                if isinstance(model, UncertaintyMAE):
+                    loss, pred, mask, reconstruction_loss, kld_loss = \
+                        model(samples, mask_ratio=args.mask_ratio, return_component_losses=True)
+                else:
+                    loss, _, _ = model(samples, mask_ratio=args.mask_ratio)
         else:
-            loss, _, _ = model(samples, mask_ratio=args.mask_ratio)
+            if isinstance(model, UncertaintyMAE):
+                loss, pred, mask, reconstruction_loss, kld_loss = \
+                    model(samples, mask_ratio=args.mask_ratio, return_component_losses=True)
+            else:
+                loss, _, _ = model(samples, mask_ratio=args.mask_ratio)
 
         loss_value = loss.item()
 
@@ -77,6 +86,9 @@ def train_one_epoch(model: torch.nn.Module,
         torch.cuda.synchronize()
 
         metric_logger.update(loss=loss_value)
+        if isinstance(model, UncertaintyMAE):
+            metric_logger.update(reconstruction_loss=reconstruction_loss)
+            metric_logger.update(kld_loss=kld_loss)
 
         lr = optimizer.param_groups[0]["lr"]
         metric_logger.update(lr=lr)
