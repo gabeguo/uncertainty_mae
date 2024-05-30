@@ -63,7 +63,7 @@ class UncertaintyMAE(nn.Module):
             assert invisible_latent.shape[2] == visible_latent.shape[2]
             assert torch.sum(reverse_mask) + torch.sum(mask) == N * 14 * 14, f"reverse mask: {torch.sum(reverse_mask)}, {torch.sum(mask)}"
             if self.invisible_mae.vae:
-                kld_loss = -0.5 * self.invisible_mae.kld_beta * \
+                kld_loss = -0.5 * \
                     torch.mean(1 + latent_log_var - latent_mean.pow(2) - torch.minimum(latent_log_var.exp(), torch.full_like(latent_log_var, 100)))
             else:
                 # add L2 penalty on latent code
@@ -81,7 +81,7 @@ class UncertaintyMAE(nn.Module):
         reconstruction_loss = self.visible_mae.forward_loss(imgs, pred, mask)
 
         if self.training:
-            loss = reconstruction_loss + kld_loss
+            loss = reconstruction_loss + self.invisible_mae.kld_beta * kld_loss
         else:
             loss = reconstruction_loss
 
