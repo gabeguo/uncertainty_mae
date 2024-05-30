@@ -4,14 +4,14 @@ python main_pretrain.py \
     --batch_size 256 \
     --blr 1e-3 \
     --accum_iter 1 \
-    --output_dir /local/zemel/gzg2104/_emoji_models/05_30_24_beta_5 \
-    --log_dir /local/zemel/gzg2104/_emoji_models/05_30_24_beta_5 \
+    --output_dir /local/zemel/gzg2104/_emoji_models/05_30_24_beta_10 \
+    --log_dir /local/zemel/gzg2104/_emoji_models/05_30_24_beta_10 \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
     --epochs 4000 \
     --log_freq 200 \
     --vae \
-    --kld_beta 5 \
+    --kld_beta 10 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
