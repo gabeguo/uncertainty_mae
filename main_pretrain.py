@@ -261,17 +261,18 @@ def main(args):
 
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
 
-    if (args.lower and args.median and args.upper):
-        wandb_name = f'multiDecoder_{args.lower}_{args.median}_{args.upper}'
-    elif args.quantile:
-        wandb_name = f'quantile_{args.quantile}'
-    else:
-        wandb_name = f'mse'
+    # if (args.lower and args.median and args.upper):
+    #     wandb_name = f'multiDecoder_{args.lower}_{args.median}_{args.upper}'
+    # elif args.quantile:
+    #     wandb_name = f'quantile_{args.quantile}'
+    # else:
+    #     wandb_name = f'mse'
 
-    wandb_name += f"{'vae_' + '{:.2e}'.format(args.kld_beta) if args.vae else ''}_{args.output_dir}"
-    include_clause = f"include_{'any' if args.include_any else 'all'}_{'_'.join(args.include_keywords)}" if args.include_keywords is not None else ''
-    exclude_clause = f"exclude_{'any' if args.exclude_any else 'all'}_{'_'.join(args.exclude_keywords)}" if args.exclude_keywords is not None else ''
-    wandb_name += f"_{args.dataset_name}_{include_clause}_{exclude_clause}"
+    # wandb_name += f"{'vae_' + '{:.2e}'.format(args.kld_beta) if args.vae else ''}_{args.output_dir}"
+    # include_clause = f"include_{'any' if args.include_any else 'all'}_{'_'.join(args.include_keywords)}" if args.include_keywords is not None else ''
+    # exclude_clause = f"exclude_{'any' if args.exclude_any else 'all'}_{'_'.join(args.exclude_keywords)}" if args.exclude_keywords is not None else ''
+    # wandb_name += f"_{args.dataset_name}_{include_clause}_{exclude_clause}"
+    wandb_name = args.output_dir
 
     if args.disable_wandb:
         wandb.init(mode='disabled')
