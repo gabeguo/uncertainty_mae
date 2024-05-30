@@ -277,7 +277,7 @@ def main(args):
     if args.disable_wandb:
         wandb.init(mode='disabled')
     else:
-        wandb.init(config=args, project='pretrain_mae', name=f"model_{wandb_name}")
+        wandb.init(config=args, project='pretrain_mae_new', name=wandb_name)
     wandb.watch(model)
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
