@@ -20,7 +20,7 @@ class UncertaintyMAE(nn.Module):
 
         return
     
-    def forward(self, imgs, mask_ratio=0.75, force_mask=None):
+    def forward(self, imgs, mask_ratio=0.75, force_mask=None, return_component_losses=False):
         """
         Returns:
         loss, pred, mask
@@ -78,9 +78,14 @@ class UncertaintyMAE(nn.Module):
         invisible_latent = self.invisible_mae.decoder_embed(invisible_latent) # embed for decoder
         pred = self.visible_mae.forward_decoder(visible_latent, ids_restore, force_mask_token=invisible_latent)  # [N, L, p*p*3]
         assert pred.shape == (N, L, 16 * 16 * 3), f"pred.shape is {pred.shape}"
-        loss = self.visible_mae.forward_loss(imgs, pred, mask)
+        reconstruction_loss = self.visible_mae.forward_loss(imgs, pred, mask)
 
         if self.training:
-            loss += kld_loss
+            loss = reconstruction_loss + kld_loss
+        else:
+            loss = reconstruction_loss
+
+        if return_component_losses:
+            return loss, pred, mask, reconstruction_loss, kld_loss
 
         return loss, pred, mask
