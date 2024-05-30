@@ -80,6 +80,8 @@ def get_args_parser():
                         help='learning rate (absolute lr)')
     parser.add_argument('--blr', type=float, default=1e-3, metavar='LR',
                         help='base learning rate: absolute_lr = base_lr * total_batch_size / 256')
+    parser.add_argument('--invisible_lr_scale', type=float, default=None, metavar='LR',
+                        help='multiplicative factor to scale invisible LR')
     parser.add_argument('--min_lr', type=float, default=0., metavar='LR',
                         help='lower lr bound for cyclic schedulers that hit 0')
 
@@ -254,8 +256,20 @@ def main(args):
     # print("effective batch size: %d" % eff_batch_size)
     
     # following timm: set wd as 0 for bias and norm layers
-    param_groups = optim_factory.add_weight_decay(model_without_ddp, args.weight_decay)
-    optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95), eps=args.eps)
+    if args.invisible_lr_scale:
+        visible_params = optim_factory.add_weight_decay(model.visible_mae, args.weight_decay)
+        assert len(visible_params) == 2
+        invisible_params = optim_factory.add_weight_decay(model.invisible_mae, args.weight_decay)
+        for curr_param_group in invisible_params:
+            assert 'params' in curr_param_group
+            assert 'weight_decay' in curr_param_group
+            curr_param_group['lr_scale'] = args.invisible_lr_scale
+        assert len(invisible_params) == 2
+        optimizer = torch.optim.AdamW(visible_params + invisible_params, 
+                                      lr=args.lr, betas=(0.9, 0.95), eps=args.eps)
+    else:
+        param_groups = optim_factory.add_weight_decay(model_without_ddp, args.weight_decay)
+        optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95), eps=args.eps)
     print(optimizer)
     loss_scaler = NativeScaler()
 

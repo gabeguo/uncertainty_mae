@@ -92,6 +92,11 @@ def train_one_epoch(model: torch.nn.Module,
 
         lr = optimizer.param_groups[0]["lr"]
         metric_logger.update(lr=lr)
+        if args.invisible_lr_scale:
+            metric_logger.update(invisible_lr=optimizer.param_groups[2]["lr"])
+            assert len(optimizer.param_groups) == 4
+            assert optimizer.param_groups[0]["lr"] == optimizer.param_groups[1]["lr"]
+            assert optimizer.param_groups[2]["lr"] == optimizer.param_groups[3]["lr"]
 
         loss_value_reduce = misc.all_reduce_mean(loss_value)
         if log_writer is not None and (data_iter_step + 1) % accum_iter == 0:
