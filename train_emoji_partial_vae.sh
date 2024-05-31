@@ -2,11 +2,11 @@ python main_pretrain.py \
     --data_path /home/gzg2104/uncertainty_mae/dataset_generation/columbia_emoji/train \
     --dataset_name emoji \
     --batch_size 256 \
-    --blr 2e-4 \
+    --blr 1e-3 \
     --accum_iter 1 \
-    --output_dir /local/zemel/gzg2104/_emoji_models/05_30_24_beta_15_blr_2e-4 \
-    --log_dir /local/zemel/gzg2104/_emoji_models/05_30_24_beta_15_blr_2e-4 \
-    --model mae_vit_base_patch16 \
+    --output_dir /local/zemel/gzg2104/_emoji_models/05_30_24_beta_15_invisible_lr_0_1_vit_large \
+    --log_dir /local/zemel/gzg2104/_emoji_models/05_30_24_beta_15_invisible_lr_0_1_vit_large \
+    --model mae_vit_large_patch16 \
     --warmup_epochs 40 \
     --epochs 4000 \
     --log_freq 200 \
@@ -14,6 +14,7 @@ python main_pretrain.py \
     --kld_beta 15 \
     --mask_ratio 0.75 \
     --partial_vae \
+    --invisible_lr_scale 0.1 \
     --dropout_ratio 0 \
     --eps 1e-4 \
     --weight_decay 0.1 \
