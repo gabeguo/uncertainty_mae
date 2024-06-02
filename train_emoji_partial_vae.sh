@@ -4,18 +4,18 @@ python main_pretrain.py \
     --batch_size 256 \
     --blr 1e-3 \
     --accum_iter 1 \
-    --output_dir /local/zemel/gzg2104/_emoji_models/06_02_24_beta_15_invisible_lr_0_2 \
-    --log_dir /local/zemel/gzg2104/_emoji_models/06_02_24_beta_15_invisible_lr_0_2 \
+    --output_dir /local/zemel/gzg2104/_emoji_models/06_02_24_beta_20_invisible_lr_0_1_decay_0_05 \
+    --log_dir /local/zemel/gzg2104/_emoji_models/06_02_24_beta_20_invisible_lr_0_1_decay_0_05 \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
     --epochs 4000 \
     --log_freq 200 \
     --vae \
-    --kld_beta 15 \
-    --invisible_lr_scale 0.2 \
+    --kld_beta 20 \
+    --invisible_lr_scale 0.1 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
     --eps 1e-4 \
-    --weight_decay 0.1 \
+    --weight_decay 0.05 \
     --mixed_precision
