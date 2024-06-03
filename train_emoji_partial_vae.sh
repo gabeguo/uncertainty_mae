@@ -1,9 +1,9 @@
 python main_pretrain.py \
     --data_path /home/gzg2104/uncertainty_mae/dataset_generation/columbia_emoji/train \
     --dataset_name emoji \
-    --batch_size 128 \
+    --batch_size 256 \
     --blr 1e-3 \
-    --accum_iter 2 \
+    --accum_iter 1 \
     --output_dir /local/zemel/gzg2104/_emoji_models/06_03_24_full_vae_beta_5 \
     --log_dir /local/zemel/gzg2104/_emoji_models/06_03_24_full_vae_beta_5 \
     --model mae_vit_base_patch16 \
