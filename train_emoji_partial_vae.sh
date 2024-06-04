@@ -1,9 +1,9 @@
-output_dir_name=/local/zemel/gzg2104/_emoji_models/06_04_24_beta_20_invisible_lr_0_1_decay_0_05_RESTART_from_2200_lr_2e-4
+output_dir_name=/local/zemel/gzg2104/_emoji_models/06_04_24_beta_20_invisible_lr_0_1_decay_0_05_RESTART_from_2200_lr_1e-4
 python main_pretrain.py \
     --data_path /home/gzg2104/uncertainty_mae/dataset_generation/columbia_emoji/train \
     --dataset_name emoji \
     --batch_size 256 \
-    --blr 2e-4 \
+    --blr 1e-4 \
     --accum_iter 1 \
     --output_dir $output_dir_name \
     --log_dir $output_dir_name \
