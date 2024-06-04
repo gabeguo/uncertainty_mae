@@ -1,12 +1,12 @@
-output_dir_name=/local/zemel/gzg2104/_emoji_models/06_04_24_beta_20_invisible_lr_0_1_decay_0_05_RESTART_from_2200_lr_1e-4
+output_path=/local/zemel/gzg2104/_emoji_models/06_04_24_beta_20_invisible_lr_0_1_decay_0_05_blr_5e-4
 python main_pretrain.py \
     --data_path /home/gzg2104/uncertainty_mae/dataset_generation/columbia_emoji/train \
     --dataset_name emoji \
     --batch_size 256 \
-    --blr 1e-4 \
+    --blr 5e-4 \
     --accum_iter 1 \
-    --output_dir $output_dir_name \
-    --log_dir $output_dir_name \
+    --output_dir $output_path \
+    --log_dir $output_path \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
     --epochs 4000 \
@@ -19,5 +19,4 @@ python main_pretrain.py \
     --dropout_ratio 0 \
     --eps 1e-4 \
     --weight_decay 0.05 \
-    --mixed_precision \
-    --resume /local/zemel/gzg2104/_emoji_models/06_02_24_beta_20_invisible_lr_0_1_decay_0_05/checkpoint-2200.pth
+    --mixed_precision
