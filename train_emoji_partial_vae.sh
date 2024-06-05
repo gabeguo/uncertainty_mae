@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_emoji_models/06_04_24_400Warmup
+output_path=/local/zemel/gzg2104/_emoji_models/06_04_24_200Warmup
 python main_pretrain.py \
     --data_path /home/gzg2104/uncertainty_mae/dataset_generation/columbia_emoji/train \
     --dataset_name emoji \
@@ -8,7 +8,7 @@ python main_pretrain.py \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
-    --warmup_epochs 400 \
+    --warmup_epochs 200 \
     --epochs 4000 \
     --log_freq 200 \
     --vae \
