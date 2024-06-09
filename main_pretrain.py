@@ -175,11 +175,11 @@ def main(args):
     if args.dataset_name == 'cifar':
         dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train)
     elif args.dataset_name == 'celeba':
-        dataset_train = datasets.CelebA('../data', split='train', target_type='attr', transform=transform_train, download=True)
+        dataset_train = datasets.CelebA('/local/zemel/gzg2104/datasets', split='train', target_type='attr', transform=transform_train, download=True)
     elif args.dataset_name == 'flowers':
         dataset_train = datasets.Flowers102('../data', split='train', transform=transform_train, download=True)
     elif args.dataset_name == 'food':
-        dataset_train = datasets.Food101('../data', split='train', transform=transform_train, download=True)
+        dataset_train = datasets.Food101('/local/zemel/gzg2104/datasets', split='train', transform=transform_train, download=True)
     elif args.dataset_name == 'emoji':
         dataset_train = EmojiDataset(args.data_path, include_keywords=args.include_keywords, exclude_keywords=args.exclude_keywords,
                                      include_any=args.include_any, exclude_any=args.exclude_any)
