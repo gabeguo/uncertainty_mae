@@ -8,8 +8,8 @@ python main_pretrain.py \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
-    --epochs 800 \
-    --log_freq 50 \
+    --epochs 400 \
+    --log_freq 20 \
     --vae \
     --kld_beta 20 \
     --invisible_lr_scale 0.1 \
@@ -19,4 +19,4 @@ python main_pretrain.py \
     --eps 1e-6 \
     --weight_decay 0.025 \
     --mixed_precision \
-    --wandb_project cifar_pretrain
+    --wandb_project celeba_pretrain
