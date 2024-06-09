@@ -134,6 +134,7 @@ def get_args_parser():
     
     # logging parameters
     parser.add_argument('--disable_wandb', action='store_true')
+    parser.add_argument('--wandb_project', type=str, default='pretrain_mae_new')
                     
 
     return parser
@@ -173,6 +174,8 @@ def main(args):
     #     ])
     if args.dataset_name == 'cifar':
         dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train)
+    elif args.dataset_name == 'celeba':
+        dataset_train = datasets.CelebA('../data', split='train', target_type='attr', transform=transform_train, download=True)
     elif args.dataset_name == 'emoji':
         dataset_train = EmojiDataset(args.data_path, include_keywords=args.include_keywords, exclude_keywords=args.exclude_keywords,
                                      include_any=args.include_any, exclude_any=args.exclude_any)
@@ -291,7 +294,9 @@ def main(args):
     if args.disable_wandb:
         wandb.init(mode='disabled')
     else:
-        wandb.init(config=args, project='pretrain_mae_new', name=wandb_name)
+        wandb.init(config=args, 
+                    project=args.wandb_project, 
+                    name=wandb_name)
     wandb.watch(model)
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
