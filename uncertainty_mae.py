@@ -49,14 +49,19 @@ class UncertaintyMAE(nn.Module):
         # use invisible encoder
         if self.training and random.random() > self.dropout_ratio: 
             ids_reverse_shuffle = torch.cat((mask_indices, keep_indices), dim=1)
+            # print(mask_ratio * L, (1 - mask_ratio) * L)
+            # reverse mask ratio, fix round-off errors
+            reverse_mask_ratio = ( (1 - mask_ratio) * L - 0.5 ) / L
+            # print(f"reverse mask ratio: {reverse_mask_ratio:.3f}; reverse mask quantity: {L * reverse_mask_ratio}")
             if self.invisible_mae.vae:
                 invisible_latent, reverse_mask, reverse_ids_restore, latent_mean, latent_log_var = \
-                    self.invisible_mae.forward_encoder(imgs, 1 - mask_ratio, force_mask=ids_reverse_shuffle)
+                    self.invisible_mae.forward_encoder(imgs, reverse_mask_ratio, force_mask=ids_reverse_shuffle)
             else:
                 invisible_latent, reverse_mask, reverse_ids_restore = \
-                    self.invisible_mae.forward_encoder(imgs, 1 - mask_ratio, force_mask=ids_reverse_shuffle)
+                    self.invisible_mae.forward_encoder(imgs, reverse_mask_ratio, force_mask=ids_reverse_shuffle)
             # print('mean:', torch.mean(latent_mean), torch.std(latent_mean))
             # print('std:', torch.mean(latent_log_var.exp()), torch.std(latent_log_var.exp()))
+            # print(f"keep: {keep_indices.shape}; remove: {mask_indices.shape}")
             assert invisible_latent.shape[1] + visible_latent.shape[1] == 14 * 14 + 2, \
                 f"invisible_latent: {invisible_latent.shape}, visible latent: {visible_latent.shape}, imgs: {imgs.shape}"
             assert invisible_latent.shape[0] == visible_latent.shape[0]
