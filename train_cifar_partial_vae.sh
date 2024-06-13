@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_13_24_pretrained
+output_path=/local/zemel/gzg2104/_cifar_models/06_13_24_pretrained_kldBeta1
 python main_pretrain.py \
     --dataset_name cifar \
     --batch_size 384 \
@@ -11,7 +11,7 @@ python main_pretrain.py \
     --epochs 800 \
     --log_freq 50 \
     --vae \
-    --kld_beta 5 \
+    --kld_beta 1 \
     --invisible_lr_scale 0.1 \
     --mask_ratio 0.75 \
     --partial_vae \
