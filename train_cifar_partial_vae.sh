@@ -2,7 +2,7 @@ output_path=/local/zemel/gzg2104/_cifar_models/06_13_24_pretrained
 python main_pretrain.py \
     --dataset_name cifar \
     --batch_size 384 \
-    --blr 1e-4 \
+    --blr 1e-5 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
