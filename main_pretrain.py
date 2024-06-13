@@ -113,6 +113,10 @@ def get_args_parser():
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--resume', default='',
                         help='resume from checkpoint')
+    parser.add_argument('--pretrained_weights', type=str,
+                        default=None)
+    parser.add_argument('--frozen_backbone_epochs', type=int,
+                        default=None)
 
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
@@ -223,7 +227,8 @@ def main(args):
                                                 quantile=args.quantile, vae=False, kld_beta=0)
         invisible_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
                                                 quantile=args.quantile, vae=args.vae, kld_beta=args.kld_beta)
-        model = UncertaintyMAE(visible_mae=visible_model, invisible_mae=invisible_model, dropout_ratio=args.dropout_ratio)
+        model = UncertaintyMAE(visible_mae=visible_model, invisible_mae=invisible_model, dropout_ratio=args.dropout_ratio,
+                               load_weights=args.pretrained_weights)
         print('partial VAE')
     elif (args.lower is not None) and (args.median is not None) and (args.upper is not None):
         assert 0 < args.lower < args.median < args.upper < 1
@@ -308,6 +313,14 @@ def main(args):
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             data_loader_train.sampler.set_epoch(epoch)
+        if (args.frozen_backbone_epochs is not None) and \
+                epoch == args.frozen_backbone_epochs:
+            # unfreeze backbone
+            for param in model.parameters():
+                param.requires_grad = True
+            for param in model.visible_mae.parameters():
+                assert param.requires_grad
+            print('unfrozen!')
         train_stats = train_one_epoch(
             model, data_loader_train,
             optimizer, device, epoch, loss_scaler,

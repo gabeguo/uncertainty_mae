@@ -4,7 +4,7 @@ from models_mae import MaskedAutoencoderViT
 import random
 
 class UncertaintyMAE(nn.Module):
-    def __init__(self, visible_mae, invisible_mae, dropout_ratio=0):
+    def __init__(self, visible_mae, invisible_mae, dropout_ratio=0, load_weights=None):
         super().__init__()
 
         assert isinstance(visible_mae, MaskedAutoencoderViT)
@@ -15,6 +15,10 @@ class UncertaintyMAE(nn.Module):
 
         self.visible_mae = visible_mae
         self.invisible_mae = invisible_mae
+
+        if load_weights is not None:
+            self.visible_mae.adopt_weights(load_weights)
+            self.invisible_mae.adopt_weights(load_weights)
 
         self.dropout_ratio = dropout_ratio
 

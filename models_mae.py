@@ -107,6 +107,28 @@ class MaskedAutoencoderViT(nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
+    def adopt_weights(self, weights_path, freeze=True):
+        checkpoint = torch.load(weights_path, map_location='cpu')
+        print(f"is vae: {self.vae}")
+        if not self.vae:
+            msg = self.load_state_dict(checkpoint['model'], strict=True)
+            missing_keys = list()
+        else:
+            msg = self.load_state_dict(checkpoint['model'], strict=False)
+            missing_keys = msg.missing_keys
+        parameters_to_train = list()
+        if freeze:
+            for name, param in self.named_parameters():
+                if (name in missing_keys) or ('decoder' in name):
+                    param.requires_grad = True
+                    parameters_to_train.append(name)
+                else:
+                    param.requires_grad = False
+        print(msg)
+        print('train:', parameters_to_train)
+        assert set(missing_keys).issubset(set(parameters_to_train))
+        return
+
     def patchify(self, imgs):
         """
         imgs: (N, 3, H, W)

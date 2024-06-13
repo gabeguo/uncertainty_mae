@@ -1,8 +1,8 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_12_24_batchSize_384
+output_path=/local/zemel/gzg2104/_cifar_models/06_13_24_pretrained
 python main_pretrain.py \
     --dataset_name cifar \
     --batch_size 384 \
-    --blr 1e-3 \
+    --blr 1e-4 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
@@ -11,12 +11,14 @@ python main_pretrain.py \
     --epochs 800 \
     --log_freq 50 \
     --vae \
-    --kld_beta 25 \
-    --invisible_lr_scale 0.1 \
+    --kld_beta 5 \
+    --invisible_lr_scale 1 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
-    --eps 1e-6 \
+    --eps 1e-4 \
     --weight_decay 0.025 \
     --mixed_precision \
-    --wandb_project cifar_pretrain
+    --wandb_project cifar_pretrain \
+    --pretrained_weights /home/gzg2104/uncertainty_mae/pretrained_models/mae_visualize_vit_base.pth \
+    --frozen_backbone_epochs 0 \
