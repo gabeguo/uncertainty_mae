@@ -6,6 +6,7 @@ import os
 import time
 from pathlib import Path
 
+from datasets import load_dataset
 import torch
 import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
@@ -170,12 +171,6 @@ def main(args):
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
-    # transform_val = transforms.Compose([
-    #         transforms.Resize(256, interpolation=3),
-    #         transforms.CenterCrop(224),
-    #         transforms.ToTensor(),
-    #         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    #     ])
     if args.dataset_name == 'cifar':
         dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train)
     elif args.dataset_name == 'celeba':
@@ -187,6 +182,25 @@ def main(args):
     elif args.dataset_name == 'emoji':
         dataset_train = EmojiDataset(args.data_path, include_keywords=args.include_keywords, exclude_keywords=args.exclude_keywords,
                                      include_any=args.include_any, exclude_any=args.exclude_any)
+    elif args.dataset_name == 'imagenet_sketch':
+        sketch_mean = [0.857, 0.857, 0.857]
+        sketch_std = [0.254, 0.254, 0.254]
+        transform_sketch = transforms.Compose([
+                transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
+                transforms.RandomHorizontalFlip(),
+                transforms.Grayscale(num_output_channels=3),
+                # transforms.Resize((224, 224), interpolation=3),
+                transforms.ToTensor(),
+                transforms.Normalize(sketch_mean, sketch_std)
+            ])
+        def transform_wrapper(examples):
+            examples["image"] = [transform_sketch(image) for image in examples["image"]]
+            return examples
+
+        dataset_train = load_dataset("imagenet_sketch", split='train', 
+                            cache_dir='/local/zemel/gzg2104/datasets')
+
+        dataset_train.set_transform(transform_wrapper)
     else:
         dataset_train = datasets.ImageNet(args.data_path, split="train", 
             transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
