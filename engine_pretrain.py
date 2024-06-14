@@ -38,7 +38,7 @@ def train_one_epoch(model: torch.nn.Module,
         print('log_dir: {}'.format(log_writer.log_dir))
 
     for data_iter_step, the_data in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
-        if args.dataset == 'imagenet_sketch':
+        if args.dataset_name == 'imagenet_sketch':
             samples = the_data['image']
         else:
             (samples, _) = the_data
