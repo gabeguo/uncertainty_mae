@@ -54,11 +54,11 @@ class MaskedAutoencoderViT(nn.Module):
                 self.block_mean = Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer)
                 self.block_log_var = Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer)
             else:
-                self.block_mean = nn.Sequential(**[
+                self.block_mean = nn.Sequential(*[
                     Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer)
                     for i in range(num_vae_blocks)
                 ])
-                self.block_log_var = nn.Sequential(**[
+                self.block_log_var = nn.Sequential(*[
                     Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer) 
                     for i in range(num_vae_blocks)
                 ])
