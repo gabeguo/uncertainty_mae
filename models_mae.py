@@ -77,6 +77,12 @@ class MaskedAutoencoderViT(nn.Module):
 
         self.initialize_weights()
 
+        # add zero-convolution to log-var for numerical stability; must be done AFTER weight initialization
+        self.zero_conv_weight = torch.nn.Parameter(torch.zeros(1))
+        self.zero_conv_weight.requires_grad = True
+        self.zero_conv_bias = torch.nn.Parameter(torch.zeros(1))
+        self.zero_conv_bias.requires_grad = True
+
     def initialize_weights(self):
         # initialization
         # initialize (and freeze) pos_embed by sin-cos embedding
@@ -213,6 +219,7 @@ class MaskedAutoencoderViT(nn.Module):
         if self.vae:
             mean_x = self.block_mean(x)
             log_var_x = self.block_log_var(x)
+            log_var_x = self.zero_conv_weight * log_var_x + self.zero_conv_bias
             x = self.reparameterization(mean=mean_x, var=torch.exp(0.5 * log_var_x))
             x = self.norm(x)
             return x, mask, ids_restore, mean_x, log_var_x

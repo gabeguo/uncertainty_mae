@@ -80,6 +80,9 @@ class UncertaintyMAE(nn.Module):
             assert torch.sum(reverse_mask) + torch.sum(mask) == N * 14 * 14, f"reverse mask: {torch.sum(reverse_mask)}, {torch.sum(mask)}"
             kld_loss = -0.5 * \
                 torch.mean(1 + latent_log_var - latent_mean.pow(2) - torch.minimum(latent_log_var.exp(), torch.full_like(latent_log_var, 100)))
+            if random.random() < 0.01:
+                print('mean:', latent_mean.mean())
+                print('var:', latent_log_var.exp().mean())
         # test time
         else:
             invisible_num_tokens = 14 * 14 + 2 - visible_latent.shape[1]
