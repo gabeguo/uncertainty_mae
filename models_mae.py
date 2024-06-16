@@ -32,7 +32,7 @@ class MaskedAutoencoderViT(nn.Module):
                  embed_dim=1024, depth=24, num_heads=16,
                  decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
                  mlp_ratio=4., norm_layer=nn.LayerNorm, norm_pix_loss=False,
-                 quantile=None, vae=False, kld_beta=1):
+                 quantile=None, vae=False, kld_beta=1, num_vae_blocks=1):
         super().__init__()
 
         self.vae = vae
@@ -50,8 +50,18 @@ class MaskedAutoencoderViT(nn.Module):
             Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer)
             for i in range(depth)])
         if self.vae:
-            self.block_mean = Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer)
-            self.block_log_var = Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer)
+            if num_vae_blocks == 1:
+                self.block_mean = Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer)
+                self.block_log_var = Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer)
+            else:
+                self.block_mean = nn.Sequential(**[
+                    Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer)
+                    for i in range(num_vae_blocks)
+                ])
+                self.block_log_var = nn.Sequential(**[
+                    Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer) 
+                    for i in range(num_vae_blocks)
+                ])
         self.norm = norm_layer(embed_dim)
         # --------------------------------------------------------------------------
 

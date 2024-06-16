@@ -64,6 +64,8 @@ def get_args_parser():
                         help='Upper quantile for multi-head decoder')
     parser.add_argument('--vae', action='store_true', 
                         help='is this a vae?')
+    parser.add_argument('--num_vae_blocks', default=1, type=int,
+                        help='number of VAE blocks (for mean and var) to add on top of backbone')
     parser.add_argument('--kld_beta', default=1, type=float,
                         help='Beta term if using VAE')
     parser.add_argument('--dropout_ratio', default=0, type=float,
@@ -232,7 +234,8 @@ def main(args):
             models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
                             quantile=args.quantile, vae=False, kld_beta=0)
         invisible_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
-                                                quantile=args.quantile, vae=args.vae, kld_beta=args.kld_beta)
+                                                quantile=args.quantile, vae=args.vae, kld_beta=args.kld_beta,
+                                                num_vae_blocks=args.num_vae_blocks)
         model = UncertaintyMAE(visible_mae=visible_model, invisible_mae=invisible_model, 
                                dropout_ratio=args.dropout_ratio,
                                load_weights=args.pretrained_weights, same_encoder=args.same_encoder)
