@@ -21,5 +21,4 @@ python main_pretrain.py \
     --pretrained_weights /home/gzg2104/uncertainty_mae/pretrained_models/mae_visualize_vit_base.pth \
     --frozen_backbone_epochs 200 \
     --same_encoder \
-    --wandb_project cifar_pretrain \
-    --disable_wandb
+    --wandb_project cifar_pretrain
