@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_16_24_sharedEncoder_unfreezeAfter100
+output_path=/local/zemel/gzg2104/_cifar_models/06_16_24_sharedEncoder_unfreezeAfter100_beta15
 python main_pretrain.py \
     --dataset_name cifar \
     --batch_size 256 \
@@ -11,7 +11,7 @@ python main_pretrain.py \
     --epochs 800 \
     --log_freq 50 \
     --vae \
-    --kld_beta 5 \
+    --kld_beta 15 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
