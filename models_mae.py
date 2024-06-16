@@ -273,7 +273,7 @@ class MaskedAutoencoderViT(nn.Module):
         loss = loss.mean(dim=-1)  # [N, L], mean loss per patch
 
         loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
-        if self.vae:
+        if (latent_mean is not None) and (latent_log_var is not None):
             kld_loss = -0.5 * self.kld_beta * torch.mean(1 + latent_log_var - latent_mean.pow(2) - torch.minimum(latent_log_var.exp(), torch.full_like(latent_log_var, 1000)))
             loss += kld_loss
         return loss

@@ -4,19 +4,30 @@ from models_mae import MaskedAutoencoderViT
 import random
 
 class UncertaintyMAE(nn.Module):
-    def __init__(self, visible_mae, invisible_mae, dropout_ratio=0, load_weights=None):
+    def __init__(self, visible_mae, invisible_mae, dropout_ratio=0, 
+                 load_weights=None, same_encoder=False):
         super().__init__()
 
-        assert isinstance(visible_mae, MaskedAutoencoderViT)
+        self.same_encoder = same_encoder
+        self.load_weights = load_weights
+
         assert isinstance(invisible_mae, MaskedAutoencoderViT)
-        print(f'invisible mae is VAE: {invisible_mae.vae}')
-        # assert invisible_mae.vae # should be variational
-        assert not visible_mae.vae # should not be variational
+        assert invisible_mae.vae
 
-        self.visible_mae = visible_mae
-        self.invisible_mae = invisible_mae
+        if self.same_encoder:
+            assert visible_mae is None
 
-        if load_weights is not None:
+            self.visible_mae = invisible_mae
+            self.invisible_mae = invisible_mae
+
+        else:
+            assert isinstance(visible_mae, MaskedAutoencoderViT)
+            assert not visible_mae.vae # should be deterministic
+
+            self.visible_mae = visible_mae
+            self.invisible_mae = invisible_mae
+
+        if self.load_weights is not None:
             self.visible_mae.adopt_weights(load_weights)
             self.invisible_mae.adopt_weights(load_weights)
 
@@ -48,41 +59,34 @@ class UncertaintyMAE(nn.Module):
             keep_indices, mask_indices = force_mask
         
         ids_shuffle = torch.cat((keep_indices, mask_indices), dim=1)
-        visible_latent, mask, ids_restore = self.visible_mae.forward_encoder(imgs, mask_ratio, force_mask=ids_shuffle)
+        if self.same_encoder:
+            assert self.visible_mae.vae
+            _, mask, ids_restore, visible_latent, _ = \
+                self.visible_mae.forward_encoder(imgs, mask_ratio, force_mask=ids_shuffle)
+        else:
+            visible_latent, mask, ids_restore = \
+                self.visible_mae.forward_encoder(imgs, mask_ratio, force_mask=ids_shuffle)
 
         # use invisible encoder
         if self.training and random.random() > self.dropout_ratio: 
             ids_reverse_shuffle = torch.cat((mask_indices, keep_indices), dim=1)
-            # print(mask_ratio * L, (1 - mask_ratio) * L)
-            # reverse mask ratio, fix round-off errors
             reverse_mask_ratio = ( (1 - mask_ratio) * L - 0.5 ) / L
-            # print(f"reverse mask ratio: {reverse_mask_ratio:.3f}; reverse mask quantity: {L * reverse_mask_ratio}")
-            if self.invisible_mae.vae:
-                invisible_latent, reverse_mask, reverse_ids_restore, latent_mean, latent_log_var = \
-                    self.invisible_mae.forward_encoder(imgs, reverse_mask_ratio, force_mask=ids_reverse_shuffle)
-            else:
-                invisible_latent, reverse_mask, reverse_ids_restore = \
-                    self.invisible_mae.forward_encoder(imgs, reverse_mask_ratio, force_mask=ids_reverse_shuffle)
-            # print('mean:', torch.mean(latent_mean), torch.std(latent_mean))
-            # print('std:', torch.mean(latent_log_var.exp()), torch.std(latent_log_var.exp()))
-            # print(f"keep: {keep_indices.shape}; remove: {mask_indices.shape}")
+            invisible_latent, reverse_mask, _, latent_mean, latent_log_var = \
+                self.invisible_mae.forward_encoder(imgs, reverse_mask_ratio, force_mask=ids_reverse_shuffle)
             assert invisible_latent.shape[1] + visible_latent.shape[1] == 14 * 14 + 2, \
                 f"invisible_latent: {invisible_latent.shape}, visible latent: {visible_latent.shape}, imgs: {imgs.shape}"
             assert invisible_latent.shape[0] == visible_latent.shape[0]
             assert invisible_latent.shape[2] == visible_latent.shape[2]
             assert torch.sum(reverse_mask) + torch.sum(mask) == N * 14 * 14, f"reverse mask: {torch.sum(reverse_mask)}, {torch.sum(mask)}"
-            if self.invisible_mae.vae:
-                kld_loss = -0.5 * \
-                    torch.mean(1 + latent_log_var - latent_mean.pow(2) - torch.minimum(latent_log_var.exp(), torch.full_like(latent_log_var, 100)))
-            else:
-                # add L2 penalty on latent code
-                kld_loss = self.invisible_mae.kld_beta * torch.mean(invisible_latent.pow(2))
-        # use random noise, to make more robust
+            kld_loss = -0.5 * \
+                torch.mean(1 + latent_log_var - latent_mean.pow(2) - torch.minimum(latent_log_var.exp(), torch.full_like(latent_log_var, 100)))
+        # test time
         else:
             invisible_num_tokens = 14 * 14 + 2 - visible_latent.shape[1]
             invisible_latent = torch.randn(visible_latent.shape[0], invisible_num_tokens, visible_latent.shape[2],
                                            device=visible_latent.device)
             kld_loss = 0
+        
         # TODO: if this gets buggy, try to regenerate the real image with these indices
         invisible_latent = self.invisible_mae.decoder_embed(invisible_latent) # embed for decoder
         pred = self.visible_mae.forward_decoder(visible_latent, ids_restore, force_mask_token=invisible_latent)  # [N, L, p*p*3]

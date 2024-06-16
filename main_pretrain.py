@@ -68,6 +68,7 @@ def get_args_parser():
                         help='Beta term if using VAE')
     parser.add_argument('--dropout_ratio', default=0, type=float,
                         help='How often to ignore the invisible encoder')
+    parser.add_argument('--same_encoder', action='store_true')
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
@@ -204,16 +205,6 @@ def main(args):
     else:
         dataset_train = datasets.ImageNet(args.data_path, split="train", 
             transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
-    # dataset_val = datasets.CIFAR100('../data', train=False, download=True, transform=transform_val)
-
-    
-    # print(dataset_train[0][0].shape)
-
-    # train_indices = [i for i in range(45000)]
-    # print(f'using only {len(train_indices)} indices')
-    # dataset_train = torch.utils.data.Subset(dataset_train, train_indices)
-
-    
     
     num_tasks = misc.get_world_size()
     global_rank = misc.get_rank()
@@ -241,8 +232,9 @@ def main(args):
                                                 quantile=args.quantile, vae=False, kld_beta=0)
         invisible_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
                                                 quantile=args.quantile, vae=args.vae, kld_beta=args.kld_beta)
-        model = UncertaintyMAE(visible_mae=visible_model, invisible_mae=invisible_model, dropout_ratio=args.dropout_ratio,
-                               load_weights=args.pretrained_weights)
+        model = UncertaintyMAE(visible_mae=visible_model if (not args.same_encoder) else None, 
+                               invisible_mae=invisible_model, dropout_ratio=args.dropout_ratio,
+                               load_weights=args.pretrained_weights, same_encoder=args.same_encoder)
         print('partial VAE')
     elif (args.lower is not None) and (args.median is not None) and (args.upper is not None):
         assert 0 < args.lower < args.median < args.upper < 1
@@ -282,7 +274,7 @@ def main(args):
     # print("effective batch size: %d" % eff_batch_size)
     
     # following timm: set wd as 0 for bias and norm layers
-    if args.invisible_lr_scale:
+    if args.invisible_lr_scale and (not args.same_encoder):
         visible_params = optim_factory.add_weight_decay(model.visible_mae, args.weight_decay)
         assert len(visible_params) == 2
         invisible_params = optim_factory.add_weight_decay(model.invisible_mae, args.weight_decay)
@@ -301,17 +293,6 @@ def main(args):
 
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
 
-    # if (args.lower and args.median and args.upper):
-    #     wandb_name = f'multiDecoder_{args.lower}_{args.median}_{args.upper}'
-    # elif args.quantile:
-    #     wandb_name = f'quantile_{args.quantile}'
-    # else:
-    #     wandb_name = f'mse'
-
-    # wandb_name += f"{'vae_' + '{:.2e}'.format(args.kld_beta) if args.vae else ''}_{args.output_dir}"
-    # include_clause = f"include_{'any' if args.include_any else 'all'}_{'_'.join(args.include_keywords)}" if args.include_keywords is not None else ''
-    # exclude_clause = f"exclude_{'any' if args.exclude_any else 'all'}_{'_'.join(args.exclude_keywords)}" if args.exclude_keywords is not None else ''
-    # wandb_name += f"_{args.dataset_name}_{include_clause}_{exclude_clause}"
     wandb_name = args.output_dir
 
     if args.disable_wandb:
