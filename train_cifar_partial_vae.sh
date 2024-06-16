@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_16_24_sharedEncoder_vaeBlocks3_eps_1e-8
+output_path=/local/zemel/gzg2104/_cifar_models/06_16_24_vaeBlocks2_kldBeta5_frozen100_eps_1e-8
 python main_pretrain.py \
     --dataset_name cifar \
     --batch_size 256 \
@@ -11,7 +11,7 @@ python main_pretrain.py \
     --epochs 800 \
     --log_freq 50 \
     --vae \
-    --kld_beta 15 \
+    --kld_beta 5 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
@@ -19,7 +19,7 @@ python main_pretrain.py \
     --weight_decay 0.025 \
     --mixed_precision \
     --pretrained_weights /home/gzg2104/uncertainty_mae/pretrained_models/mae_visualize_vit_base.pth \
-    --frozen_backbone_epochs 800 \
+    --frozen_backbone_epochs 100 \
     --same_encoder \
-    --num_vae_blocks 3 \
+    --num_vae_blocks 2 \
     --wandb_project cifar_pretrain
