@@ -1,8 +1,8 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_17_24_lr_1e-5/finetune_vaeHeads_and_decoder
+output_path=/local/zemel/gzg2104/_cifar_models/06_17_24_lr_1e-3/finetune_vaeHeads_and_decoder
 python main_pretrain.py \
     --dataset_name cifar \
     --batch_size 512 \
-    --blr 1e-5 \
+    --blr 1e-3 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
