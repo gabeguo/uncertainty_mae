@@ -1,8 +1,8 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_17_24_twoBlocks/finetune_vaeHeads_and_decoder
+output_path=/local/zemel/gzg2104/_cifar_models/06_17_24_lr_1e-5/finetune_vaeHeads_and_decoder
 python main_pretrain.py \
     --dataset_name cifar \
     --batch_size 512 \
-    --blr 1e-4 \
+    --blr 1e-5 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
@@ -21,5 +21,5 @@ python main_pretrain.py \
     --pretrained_weights /home/gzg2104/uncertainty_mae/pretrained_models/mae_visualize_vit_base.pth \
     --frozen_backbone_epochs 300 \
     --same_encoder \
-    --num_vae_blocks 2 \
+    --num_vae_blocks 1 \
     --wandb_project cifar_pretrain
