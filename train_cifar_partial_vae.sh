@@ -15,7 +15,7 @@ python main_pretrain.py \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
-    --eps 1e-6 \
+    --eps 1e-8 \
     --weight_decay 0.025 \
     --mixed_precision \
     --pretrained_weights /home/gzg2104/uncertainty_mae/pretrained_models/mae_visualize_vit_base.pth \
