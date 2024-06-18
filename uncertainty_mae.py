@@ -13,6 +13,9 @@ class UncertaintyMAE(nn.Module):
         self.load_weights = load_weights
         self.end_to_end_finetune = end_to_end_finetune
         self.block_mask_prob = block_mask_prob
+        print(f'Same encoder: {self.same_encoder}')
+        print(f'End-to-end finetune: {self.end_to_end_finetune}')
+        print(f'Block mask prob: {self.block_mask_prob}')
 
         assert isinstance(invisible_mae, MaskedAutoencoderViT)
         assert invisible_mae.vae
