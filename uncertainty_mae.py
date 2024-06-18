@@ -10,6 +10,7 @@ class UncertaintyMAE(nn.Module):
 
         self.same_encoder = same_encoder
         self.load_weights = load_weights
+        self.end_to_end_finetune = end_to_end_finetune
 
         assert isinstance(invisible_mae, MaskedAutoencoderViT)
         assert invisible_mae.vae
