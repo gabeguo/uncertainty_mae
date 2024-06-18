@@ -1,8 +1,8 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_17_24_lr_1e-3/end_to_end_finetune_beta15
+output_path=/local/zemel/gzg2104/_cifar_models/06_17_24_lr_1e-3/end_to_end_finetune_lr_1e-3
 python main_pretrain.py \
     --dataset_name cifar \
     --batch_size 384 \
-    --blr 1e-4 \
+    --blr 1e-3 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
@@ -11,7 +11,7 @@ python main_pretrain.py \
     --epochs 300 \
     --log_freq 50 \
     --vae \
-    --kld_beta 15 \
+    --kld_beta 5 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
