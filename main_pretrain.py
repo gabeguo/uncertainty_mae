@@ -70,7 +70,10 @@ def get_args_parser():
                         help='Beta term if using VAE')
     parser.add_argument('--dropout_ratio', default=0, type=float,
                         help='How often to ignore the invisible encoder')
-    parser.add_argument('--same_encoder', action='store_true')
+    parser.add_argument('--same_encoder', action='store_true',
+                        help='do we use same encoder for visible and invisible?')
+    parser.add_argument('--end_to_end_finetune', action='store_true',
+                        help='are we end-to-end finetuning the loaded pretrained_weights?')
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
@@ -117,10 +120,10 @@ def get_args_parser():
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--resume', default='',
                         help='resume from checkpoint')
-    parser.add_argument('--pretrained_weights', type=str,
-                        default=None)
-    parser.add_argument('--frozen_backbone_epochs', type=int,
-                        default=None)
+    parser.add_argument('--pretrained_weights', type=str, default=None,
+                        help='weights from previous MAE')
+    parser.add_argument('--frozen_backbone_epochs', type=int, default=None,
+                        help='How many epochs to keep pre-trained layers frozen for')
 
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
@@ -238,7 +241,8 @@ def main(args):
                                                 num_vae_blocks=args.num_vae_blocks)
         model = UncertaintyMAE(visible_mae=visible_model, invisible_mae=invisible_model, 
                                dropout_ratio=args.dropout_ratio,
-                               load_weights=args.pretrained_weights, same_encoder=args.same_encoder)
+                               load_weights=args.pretrained_weights, same_encoder=args.same_encoder,
+                               end_to_end_finetune=args.end_to_end_finetune)
         print('partial VAE')
     elif (args.lower is not None) and (args.median is not None) and (args.upper is not None):
         assert 0 < args.lower < args.median < args.upper < 1

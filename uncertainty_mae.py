@@ -5,7 +5,7 @@ import random
 
 class UncertaintyMAE(nn.Module):
     def __init__(self, visible_mae, invisible_mae, dropout_ratio=0, 
-                 load_weights=None, same_encoder=False):
+                 load_weights=None, same_encoder=False, end_to_end_finetune=False):
         super().__init__()
 
         self.same_encoder = same_encoder
@@ -28,8 +28,13 @@ class UncertaintyMAE(nn.Module):
             self.invisible_mae = invisible_mae
 
         if self.load_weights is not None:
-            self.visible_mae.adopt_weights(load_weights)
-            self.invisible_mae.adopt_weights(load_weights)
+            if self.end_to_end_finetune:
+                checkpoint = torch.load(load_weights, map_location='cpu')
+                msg = self.load_state_dict(checkpoint['model'], strict=True)
+                print(f'CONTINUING TO FINETUNE FROM: {load_weights}')
+            else:
+                self.visible_mae.adopt_weights(load_weights)
+                self.invisible_mae.adopt_weights(load_weights)
 
         self.dropout_ratio = dropout_ratio
 
