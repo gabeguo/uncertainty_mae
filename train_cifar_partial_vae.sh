@@ -1,7 +1,7 @@
 output_path=/local/zemel/gzg2104/_cifar_models/06_17_24_lr_1e-3/end_to_end_finetune
 python main_pretrain.py \
     --dataset_name cifar \
-    --batch_size 512 \
+    --batch_size 384 \
     --blr 1e-4 \
     --accum_iter 1 \
     --output_dir $output_path \
