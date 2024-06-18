@@ -1,14 +1,14 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_17_24_lr_1e-3/end_to_end_finetune_blockMask
+output_path=/local/zemel/gzg2104/_cifar_models/06_18_24_blockMask/finetune_vaeHeads_and_decoder
 python main_pretrain.py \
     --dataset_name cifar \
-    --batch_size 384 \
-    --blr 1e-4 \
+    --batch_size 512 \
+    --blr 1e-3 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
-    --warmup_epochs 40 \
-    --epochs 400 \
+    --warmup_epochs 30 \
+    --epochs 300 \
     --log_freq 50 \
     --vae \
     --kld_beta 5 \
@@ -18,9 +18,9 @@ python main_pretrain.py \
     --eps 1e-8 \
     --weight_decay 0.025 \
     --mixed_precision \
-    --pretrained_weights /local/zemel/gzg2104/_cifar_models/06_17_24_lr_1e-3/finetune_vaeHeads_and_decoder/checkpoint-299.pth \
+    --pretrained_weights /home/gzg2104/uncertainty_mae/pretrained_models/mae_visualize_vit_base.pth \
+    --frozen_backbone_epochs 300 \
     --same_encoder \
     --num_vae_blocks 1 \
-    --wandb_project cifar_pretrain \
-    --end_to_end_finetune \
-    --block_mask_prob 0.5
+    --block_mask_prob 0.5 \
+    --wandb_project cifar_pretrain
