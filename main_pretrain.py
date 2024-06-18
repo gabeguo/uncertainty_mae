@@ -74,6 +74,8 @@ def get_args_parser():
                         help='do we use same encoder for visible and invisible?')
     parser.add_argument('--end_to_end_finetune', action='store_true',
                         help='are we end-to-end finetuning the loaded pretrained_weights?')
+    parser.add_argument('--block_mask_prob', default=0, type=float,
+                        help='What probability to use a contiguous mask instead of random mask?')
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
@@ -242,7 +244,8 @@ def main(args):
         model = UncertaintyMAE(visible_mae=visible_model, invisible_mae=invisible_model, 
                                dropout_ratio=args.dropout_ratio,
                                load_weights=args.pretrained_weights, same_encoder=args.same_encoder,
-                               end_to_end_finetune=args.end_to_end_finetune)
+                               end_to_end_finetune=args.end_to_end_finetune,
+                               block_mask_prob=args.block_mask_prob)
         print('partial VAE')
     elif (args.lower is not None) and (args.median is not None) and (args.upper is not None):
         assert 0 < args.lower < args.median < args.upper < 1

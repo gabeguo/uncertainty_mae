@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_17_24_lr_1e-3/end_to_end_finetune_beta_20
+output_path=/local/zemel/gzg2104/_cifar_models/06_17_24_lr_1e-3/end_to_end_finetune_blockMask
 python main_pretrain.py \
     --dataset_name cifar \
     --batch_size 384 \
@@ -7,11 +7,11 @@ python main_pretrain.py \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
-    --warmup_epochs 30 \
-    --epochs 300 \
+    --warmup_epochs 40 \
+    --epochs 400 \
     --log_freq 50 \
     --vae \
-    --kld_beta 20 \
+    --kld_beta 5 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
@@ -22,4 +22,5 @@ python main_pretrain.py \
     --same_encoder \
     --num_vae_blocks 1 \
     --wandb_project cifar_pretrain \
-    --end_to_end_finetune
+    --end_to_end_finetune \
+    --block_mask_prob 0.5

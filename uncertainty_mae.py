@@ -5,12 +5,14 @@ import random
 
 class UncertaintyMAE(nn.Module):
     def __init__(self, visible_mae, invisible_mae, dropout_ratio=0, 
-                 load_weights=None, same_encoder=False, end_to_end_finetune=False):
+                 load_weights=None, same_encoder=False, end_to_end_finetune=False,
+                 block_mask_prob=0.5):
         super().__init__()
 
         self.same_encoder = same_encoder
         self.load_weights = load_weights
         self.end_to_end_finetune = end_to_end_finetune
+        self.block_mask_prob = block_mask_prob
 
         assert isinstance(invisible_mae, MaskedAutoencoderViT)
         assert invisible_mae.vae
@@ -41,6 +43,34 @@ class UncertaintyMAE(nn.Module):
 
         return
     
+    def block_mask(self, mask_layout):
+        if random.random() < 0.5: # mask out 75%
+            mask_ratio = 0.75 # just for this run
+            random_float = random.random()
+            if random_float < 0.25:
+                mask_layout[0:14, 0:7] = 0
+                mask_layout[0:7, 7:14] = 0
+            elif random_float < 0.5:
+                mask_layout[0:14, 0:7] = 0
+                mask_layout[7:14, 7:14] = 0
+            elif random_float < 0.75:
+                mask_layout[0:14, 7:14] = 0
+                mask_layout[0:7, 0:7] = 0
+            else:
+                mask_layout[0:14, 7:14] = 0
+                mask_layout[7:14, 0:7] = 0
+        else: # mask out 50%
+            mask_ratio = 0.5
+            if random_float < 0.25:
+                mask_layout[0:14, 0:7] = 0
+            elif random_float < 0.5:
+                mask_layout[0:14, 7:14] = 0
+            elif random_float < 0.75:
+                mask_layout[0:7, 0:14] = 0
+            else:
+                mask_layout[7:14, 0:14] = 0
+        return mask_ratio
+
     def forward(self, imgs, mask_ratio=0.75, force_mask=None, return_component_losses=False):
         """
         Returns:
@@ -55,8 +85,13 @@ class UncertaintyMAE(nn.Module):
         # Force Mask
         if force_mask is None:
             mask_layout = torch.ones(14, 14).to(device=imgs.device)
-            mask_layout = mask_layout.flatten()
-            mask_layout[torch.multinomial(mask_layout, len_remove, replacement=False)] = 0
+            if random.random() < self.block_mask_prob:
+                mask_ratio = self.block_mask(mask_layout) # need to keep track of alt mask ratio
+                mask_layout = mask_layout.flatten()
+            else:
+                mask_layout = mask_layout.flatten()
+                mask_layout[torch.multinomial(mask_layout, len_remove, replacement=False)] = 0
+            
             keep_indices = torch.where(mask_layout == 1)[0]
             mask_indices = torch.where(mask_layout == 0)[0]
             keep_indices = keep_indices.reshape(1, -1).expand(N, -1)
