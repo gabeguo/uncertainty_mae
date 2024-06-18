@@ -47,9 +47,9 @@ class UncertaintyMAE(nn.Module):
         return
     
     def block_mask(self, mask_layout):
+        random_float = random.random()
         if random.random() < 0.5: # mask out 75%
             mask_ratio = 0.75 # just for this run
-            random_float = random.random()
             if random_float < 0.25:
                 mask_layout[0:14, 0:7] = 0
                 mask_layout[0:7, 7:14] = 0
