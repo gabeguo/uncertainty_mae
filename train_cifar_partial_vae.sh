@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_19_24_partialVAE_retry/finetune_heads/
+output_path=/local/zemel/gzg2104/_cifar_models/06_19_24_partialVAE_retry/finetune_heads/scale_0_1_noBlock
 num_epochs=400
 python main_pretrain.py \
     --dataset_name cifar \
