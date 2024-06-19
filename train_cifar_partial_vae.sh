@@ -2,7 +2,7 @@ output_path=/local/zemel/gzg2104/_cifar_models/06_18_24_blockMask/end_to_end_fin
 num_epochs=400
 python main_pretrain.py \
     --dataset_name cifar \
-    --batch_size 512 \
+    --batch_size 384 \
     --blr 1e-3 \
     --accum_iter 1 \
     --output_dir $output_path \
