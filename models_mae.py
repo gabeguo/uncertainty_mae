@@ -87,11 +87,12 @@ class MaskedAutoencoderViT(nn.Module):
 
         self.initialize_weights()
 
-        # add zero-convolution to log-var for numerical stability; must be done AFTER weight initialization
-        self.zero_conv_weight = torch.nn.Parameter(torch.zeros(1))
-        self.zero_conv_weight.requires_grad = True
-        self.zero_conv_bias = torch.nn.Parameter(torch.zeros(1))
-        self.zero_conv_bias.requires_grad = True
+        if self.vae:
+            # add zero-convolution to log-var for numerical stability; must be done AFTER weight initialization
+            self.zero_conv_weight = torch.nn.Parameter(torch.zeros(1))
+            self.zero_conv_weight.requires_grad = True
+            self.zero_conv_bias = torch.nn.Parameter(torch.zeros(1))
+            self.zero_conv_bias.requires_grad = True
 
     def initialize_weights(self):
         # initialization
