@@ -1,9 +1,9 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_19_24_partialVAE_retry/finetune_heads/scale_0_1_noBlock_kld_20
+output_path=/local/zemel/gzg2104/_cifar_models/06_19_24_partialVAE_retry/finetune_heads/lr_2e-5
 num_epochs=400
 python main_pretrain.py \
     --dataset_name cifar \
     --batch_size 512 \
-    --blr 1e-4 \
+    --blr 2e-5 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
@@ -12,7 +12,7 @@ python main_pretrain.py \
     --epochs $num_epochs \
     --log_freq 50 \
     --vae \
-    --kld_beta 20 \
+    --kld_beta 5 \
     --invisible_lr_scale 0.1 \
     --mask_ratio 0.75 \
     --partial_vae \
