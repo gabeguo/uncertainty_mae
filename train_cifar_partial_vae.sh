@@ -1,14 +1,14 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_19_24_partialVAE_retry/finetune_heads/tryReducingSpikes
+output_path=/local/zemel/gzg2104/_cifar_models/06_19_24_partialVAE_retry/finetune_heads/zeroConvMean_fasterLr
 num_epochs=400
 python main_pretrain.py \
     --dataset_name cifar \
     --batch_size 512 \
-    --blr 1e-5 \
+    --blr 1e-4 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
-    --warmup_epochs 100 \
+    --warmup_epochs 40 \
     --epochs $num_epochs \
     --log_freq 50 \
     --vae \
