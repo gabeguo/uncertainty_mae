@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_18_24_blockMask/finetune_vaeHeads_and_decoder_400epochs
+output_path=/local/zemel/gzg2104/_cifar_models/06_18_24_blockMask/end_to_end_finetune_400epochs
 num_epochs=400
 python main_pretrain.py \
     --dataset_name cifar \
@@ -19,9 +19,10 @@ python main_pretrain.py \
     --eps 1e-8 \
     --weight_decay 0.025 \
     --mixed_precision \
-    --pretrained_weights /home/gzg2104/uncertainty_mae/pretrained_models/mae_visualize_vit_base.pth \
-    --frozen_backbone_epochs $num_epochs \
+    --pretrained_weights /local/zemel/gzg2104/_cifar_models/06_18_24_blockMask/finetune_vaeHeads_and_decoder_400epochs/checkpoint-399.pth \
+    --frozen_backbone_epochs 0 \
     --same_encoder \
     --num_vae_blocks 1 \
     --block_mask_prob 0.5 \
-    --wandb_project cifar_pretrain
+    --wandb_project cifar_pretrain \
+    --end_to_end_finetune
