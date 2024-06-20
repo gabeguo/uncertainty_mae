@@ -95,7 +95,8 @@ def train_one_epoch(model: torch.nn.Module,
 
         lr = optimizer.param_groups[0]["lr"]
         metric_logger.update(lr=lr)
-        if (args.invisible_lr_scale is not None) and (not args.same_encoder):
+        if (args.invisible_lr_scale is not None) and (args.invisible_lr_scale > 0) and \
+                (not args.same_encoder):
             metric_logger.update(invisible_lr=optimizer.param_groups[2]["lr"])
             assert len(optimizer.param_groups) == 4
             assert optimizer.param_groups[0]["lr"] == optimizer.param_groups[1]["lr"]
