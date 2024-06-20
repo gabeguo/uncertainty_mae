@@ -1,9 +1,9 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_19_24_partialVAE_retry/end_to_end_finetune/initialTry
+output_path=/local/zemel/gzg2104/_cifar_models/06_20_24_partialVAE_retry/finetune_heads/learnFaster
 num_epochs=400
 python main_pretrain.py \
     --dataset_name cifar \
-    --batch_size 384 \
-    --blr 1e-5 \
+    --batch_size 512 \
+    --blr 5e-4 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
@@ -23,6 +23,5 @@ python main_pretrain.py \
     --num_vae_blocks 1 \
     --block_mask_prob 0 \
     --wandb_project cifar_pretrain \
-    --pretrained_weights /local/zemel/gzg2104/_cifar_models/06_19_24_partialVAE_retry/finetune_heads/zeroConvMean_fasterLr/checkpoint-399.pth \
+    --pretrained_weights /home/gzg2104/uncertainty_mae/pretrained_models/mae_visualize_vit_base.pth \
     --frozen_backbone_epochs $num_epochs \
-    --end_to_end_finetune
