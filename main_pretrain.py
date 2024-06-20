@@ -76,6 +76,8 @@ def get_args_parser():
                         help='are we end-to-end finetuning the loaded pretrained_weights?')
     parser.add_argument('--block_mask_prob', default=0, type=float,
                         help='What probability to use a contiguous mask instead of random mask?')
+    parser.add_argument('--disable_zero_conv', action='store_true',
+                        help='Disable zero conv to initialize VAE?')
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
@@ -240,7 +242,7 @@ def main(args):
                             quantile=args.quantile, vae=False, kld_beta=0)
         invisible_model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss, 
                                                 quantile=args.quantile, vae=args.vae, kld_beta=args.kld_beta,
-                                                num_vae_blocks=args.num_vae_blocks)
+                                                num_vae_blocks=args.num_vae_blocks, disable_zero_conv=args.disable_zero_conv)
         model = UncertaintyMAE(visible_mae=visible_model, invisible_mae=invisible_model, 
                                dropout_ratio=args.dropout_ratio,
                                load_weights=args.pretrained_weights, same_encoder=args.same_encoder,

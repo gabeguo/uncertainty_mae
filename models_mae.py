@@ -32,7 +32,8 @@ class MaskedAutoencoderViT(nn.Module):
                  embed_dim=1024, depth=24, num_heads=16,
                  decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
                  mlp_ratio=4., norm_layer=nn.LayerNorm, norm_pix_loss=False,
-                 quantile=None, vae=False, kld_beta=1, num_vae_blocks=1):
+                 quantile=None, vae=False, kld_beta=1, num_vae_blocks=1,
+                 disable_zero_conv=False):
         super().__init__()
 
         self.vae = vae
@@ -87,7 +88,8 @@ class MaskedAutoencoderViT(nn.Module):
 
         self.initialize_weights()
 
-        if self.vae:
+        self.disable_zero_conv = disable_zero_conv
+        if self.vae and (not self.disable_zero_conv):
             # add zero-convolution to log-var for numerical stability; must be done AFTER weight initialization
             self.logVar_zero_conv_weight = torch.nn.Parameter(torch.zeros(1))
             self.logVar_zero_conv_weight.requires_grad = True
@@ -233,9 +235,12 @@ class MaskedAutoencoderViT(nn.Module):
         for blk in self.blocks:
             x = blk(x)
         if self.vae:
-            mean_x = self.mean_zero_conv_weight * self.block_mean(x) + self.mean_zero_conv_bias
+            mean_x = self.block_mean(x)
+            if not self.disable_zero_conv:
+                mean_x = self.mean_zero_conv_weight * mean_x + self.mean_zero_conv_bias
             log_var_x = self.block_log_var(x)
-            log_var_x = self.logVar_zero_conv_weight * log_var_x + self.logVar_zero_conv_bias
+            if not self.disable_zero_conv:
+                log_var_x = self.logVar_zero_conv_weight * log_var_x + self.logVar_zero_conv_bias
             x = self.reparameterization(mean=mean_x, var=torch.exp(0.5 * log_var_x))
             x = self.norm(x)
             return x, mask, ids_restore, mean_x, log_var_x

@@ -1,28 +1,23 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_19_24_partialVAE_retry/end_to_end_finetune/lr_5e-5
-num_epochs=400
+output_path=/local/zemel/gzg2104/_cifar_models/REDO_06_12_24_batchSize_384
 python main_pretrain.py \
     --dataset_name cifar \
     --batch_size 384 \
-    --blr 5e-5 \
+    --blr 1e-3 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
-    --epochs $num_epochs \
+    --epochs 800 \
     --log_freq 50 \
     --vae \
-    --kld_beta 10 \
+    --kld_beta 25 \
     --invisible_lr_scale 0.1 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
-    --eps 1e-8 \
+    --eps 1e-6 \
     --weight_decay 0.025 \
     --mixed_precision \
-    --num_vae_blocks 1 \
-    --block_mask_prob 0 \
     --wandb_project cifar_pretrain \
-    --pretrained_weights /local/zemel/gzg2104/_cifar_models/06_19_24_partialVAE_retry/finetune_heads/zeroConvMean_fasterLr/checkpoint-399.pth \
-    --frozen_backbone_epochs $num_epochs \
-    --end_to_end_finetune
+    --disable_zero_conv
