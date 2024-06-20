@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_20_24_partialVAE_retry/finetune_heads/learnFaster_2layerHead
+output_path=/local/zemel/gzg2104/_cifar_models/06_20_24_partialVAE_retry/finetune_heads/decoderTrainOnly
 num_epochs=400
 python main_pretrain.py \
     --dataset_name cifar \
@@ -13,7 +13,7 @@ python main_pretrain.py \
     --log_freq 50 \
     --vae \
     --kld_beta 10 \
-    --invisible_lr_scale 0.1 \
+    --invisible_lr_scale 0 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \

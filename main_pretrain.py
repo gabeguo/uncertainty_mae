@@ -288,14 +288,18 @@ def main(args):
     if args.invisible_lr_scale and (not args.same_encoder):
         visible_params = optim_factory.add_weight_decay(model.visible_mae, args.weight_decay)
         assert len(visible_params) == 2
-        invisible_params = optim_factory.add_weight_decay(model.invisible_mae, args.weight_decay)
-        for curr_param_group in invisible_params:
-            assert 'params' in curr_param_group
-            assert 'weight_decay' in curr_param_group
-            curr_param_group['lr_scale'] = args.invisible_lr_scale
-        assert len(invisible_params) == 2
-        optimizer = torch.optim.AdamW(visible_params + invisible_params, 
-                                      lr=args.lr, betas=(0.9, 0.95), eps=args.eps)
+        if args.invisible_lr_scale == 0:
+            optimizer = torch.optim.AdamW(visible_params, 
+                                        lr=args.lr, betas=(0.9, 0.95), eps=args.eps)
+        else:
+            invisible_params = optim_factory.add_weight_decay(model.invisible_mae, args.weight_decay)
+            for curr_param_group in invisible_params:
+                assert 'params' in curr_param_group
+                assert 'weight_decay' in curr_param_group
+                curr_param_group['lr_scale'] = args.invisible_lr_scale
+            assert len(invisible_params) == 2
+            optimizer = torch.optim.AdamW(visible_params + invisible_params, 
+                                        lr=args.lr, betas=(0.9, 0.95), eps=args.eps)
     else:
         param_groups = optim_factory.add_weight_decay(model_without_ddp, args.weight_decay)
         optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95), eps=args.eps)
