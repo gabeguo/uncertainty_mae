@@ -19,5 +19,4 @@ python main_pretrain.py \
     --eps 1e-6 \
     --weight_decay 0.025 \
     --mixed_precision \
-    --wandb_project cifar_pretrain \
-    --disable_zero_conv
+    --wandb_project cifar_pretrain
