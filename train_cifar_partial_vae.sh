@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_20_24_partialVAE_retry/finetune_heads/learnFaster
+output_path=/local/zemel/gzg2104/_cifar_models/06_20_24_partialVAE_retry/finetune_heads/learnFaster_2layerHead
 num_epochs=400
 python main_pretrain.py \
     --dataset_name cifar \
@@ -20,7 +20,7 @@ python main_pretrain.py \
     --eps 1e-8 \
     --weight_decay 0.025 \
     --mixed_precision \
-    --num_vae_blocks 1 \
+    --num_vae_blocks 2 \
     --block_mask_prob 0 \
     --wandb_project cifar_pretrain \
     --pretrained_weights /home/gzg2104/uncertainty_mae/pretrained_models/mae_visualize_vit_base.pth \
