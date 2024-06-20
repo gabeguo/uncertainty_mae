@@ -288,9 +288,12 @@ def main(args):
     if args.invisible_lr_scale and (not args.same_encoder):
         visible_params = optim_factory.add_weight_decay(model.visible_mae, args.weight_decay)
         assert len(visible_params) == 2
-        if args.invisible_lr_scale == 0:
+        if abs(args.invisible_lr_scale) <= 1e-8:
             optimizer = torch.optim.AdamW(visible_params, 
                                         lr=args.lr, betas=(0.9, 0.95), eps=args.eps)
+            # freeze the invisible MAE!
+            for param in model.invisible_mae.parameters():
+                param.requires_grad = False
         else:
             invisible_params = optim_factory.add_weight_decay(model.invisible_mae, args.weight_decay)
             for curr_param_group in invisible_params:
