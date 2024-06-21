@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_emnist_models/initial_try_06_20_24
+output_path=/local/zemel/gzg2104/_emnist_models/06_20_24_eps_1e-6
 python main_pretrain.py \
     --dataset_name emnist \
     --batch_size 384 \
@@ -16,7 +16,7 @@ python main_pretrain.py \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
-    --eps 1e-8 \
+    --eps 1e-6 \
     --weight_decay 0.025 \
     --mixed_precision \
     --wandb_project emnist_pretrain
