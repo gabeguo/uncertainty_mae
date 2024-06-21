@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_cifar_models/fromScratch_06_20_24_zeroConv_eps_1e-6
+output_path=/local/zemel/gzg2104/_cifar_models/fromScratch_06_21_24_zeroConv_eps_1e-4
 python main_pretrain.py \
     --dataset_name cifar \
     --batch_size 384 \
@@ -16,7 +16,7 @@ python main_pretrain.py \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
-    --eps 1e-6 \
+    --eps 1e-4 \
     --weight_decay 0.025 \
     --mixed_precision \
     --wandb_project cifar_pretrain
