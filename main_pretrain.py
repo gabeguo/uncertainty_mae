@@ -192,6 +192,19 @@ def main(args):
     elif args.dataset_name == 'emoji':
         dataset_train = EmojiDataset(args.data_path, include_keywords=args.include_keywords, exclude_keywords=args.exclude_keywords,
                                      include_any=args.include_any, exclude_any=args.exclude_any)
+    elif args.dataset_name == 'emnist':
+        emnist_mean = np.array([0.176, 0.176, 0.176])
+        emnist_std = np.array([0.328, 0.328, 0.328])
+        emnist_transform = transforms.Compose([
+                transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
+                transforms.RandomHorizontalFlip(),
+                transforms.Grayscale(num_output_channels=3),
+                transforms.ToTensor(),
+                transforms.Normalize(emnist_mean, emnist_std)
+            ])
+        dataset_train = datasets.EMNIST('../data', split='balanced', 
+                                        train=True, download=True,
+                                        transform=emnist_transform)
     elif args.dataset_name == 'imagenet_sketch':
         sketch_mean = [0.857, 0.857, 0.857]
         sketch_std = [0.254, 0.254, 0.254]
