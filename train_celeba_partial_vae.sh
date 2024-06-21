@@ -1,7 +1,7 @@
-output_path=/local/zemel/gzg2104/_celeba_models/06_09_24_initialTry
+output_path=/local/zemel/gzg2104/_celeba_models/initialTry_06_20_24
 python main_pretrain.py \
     --dataset_name celeba \
-    --batch_size 256 \
+    --batch_size 384 \
     --blr 1e-3 \
     --accum_iter 1 \
     --output_dir $output_path \
@@ -11,7 +11,7 @@ python main_pretrain.py \
     --epochs 400 \
     --log_freq 20 \
     --vae \
-    --kld_beta 20 \
+    --kld_beta 25 \
     --invisible_lr_scale 0.1 \
     --mask_ratio 0.75 \
     --partial_vae \

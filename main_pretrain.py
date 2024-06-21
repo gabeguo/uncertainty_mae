@@ -184,7 +184,13 @@ def main(args):
     if args.dataset_name == 'cifar':
         dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train)
     elif args.dataset_name == 'celeba':
-        dataset_train = datasets.CelebA('/local/zemel/gzg2104/datasets', split='train', target_type='attr', transform=transform_train, download=True)
+        transform_celeba = transforms.Compose([
+            transforms.RandomResizedCrop(args.input_size, scale=(0.6, 1.0), interpolation=3),  # 3 is bicubic
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+        dataset_train = datasets.CelebA('/local/zemel/gzg2104/datasets', split='train', target_type='attr', transform=transform_celeba, download=True)
     elif args.dataset_name == 'flowers':
         dataset_train = datasets.Flowers102('../data', split='train', transform=transform_train, download=True)
     elif args.dataset_name == 'food':
