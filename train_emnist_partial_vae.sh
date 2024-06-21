@@ -1,8 +1,8 @@
-output_path=/local/zemel/gzg2104/_emnist_models/06_21_24_noZeroConv
+output_path=/local/zemel/gzg2104/_emnist_models/06_21_24_lr_2e-4
 python main_pretrain.py \
     --dataset_name emnist \
     --batch_size 384 \
-    --blr 1e-3 \
+    --blr 2e-4 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
@@ -19,5 +19,4 @@ python main_pretrain.py \
     --eps 1e-8 \
     --weight_decay 0.025 \
     --mixed_precision \
-    --wandb_project emnist_pretrain \
-    --disable_zero_conv
+    --wandb_project emnist_pretrain
