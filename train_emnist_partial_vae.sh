@@ -20,4 +20,5 @@ python main_pretrain.py \
     --weight_decay 0.05 \
     --mixed_precision \
     --same_encoder \
+    --disable_zero_conv \
     --wandb_project emnist_pretrain
