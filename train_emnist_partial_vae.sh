@@ -19,5 +19,5 @@ python main_pretrain.py \
     --eps 1e-8 \
     --weight_decay 0.05 \
     --mixed_precision \
-    --common_encoder \
+    --same_encoder \
     --wandb_project emnist_pretrain
