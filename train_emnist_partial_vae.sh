@@ -1,8 +1,8 @@
-output_path=/local/zemel/gzg2104/_emnist_models/06_21_24_lr_2e-4
+output_path=/local/zemel/gzg2104/_emnist_models/06_22_24/common_encoder/blr_1e-3
 python main_pretrain.py \
     --dataset_name emnist \
     --batch_size 384 \
-    --blr 2e-4 \
+    --blr 1e-3 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
@@ -17,6 +17,7 @@ python main_pretrain.py \
     --partial_vae \
     --dropout_ratio 0 \
     --eps 1e-8 \
-    --weight_decay 0.025 \
+    --weight_decay 0.05 \
     --mixed_precision \
+    --common_encoder \
     --wandb_project emnist_pretrain
