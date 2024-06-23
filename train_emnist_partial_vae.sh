@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_emnist_models/06_22_24/common_encoder/beta1
+output_path=/local/zemel/gzg2104/_emnist_models/06_22_24/common_encoder/beta1_blockMask_0_5
 python main_pretrain.py \
     --dataset_name emnist \
     --batch_size 384 \
@@ -20,4 +20,5 @@ python main_pretrain.py \
     --weight_decay 0.05 \
     --mixed_precision \
     --same_encoder \
+    --block_mask_prob 0.5 \
     --wandb_project emnist_pretrain
