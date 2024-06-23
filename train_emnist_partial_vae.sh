@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_emnist_models/06_22_24/common_encoder/beta2
+output_path=/local/zemel/gzg2104/_emnist_models/06_22_24/common_encoder/beta1
 python main_pretrain.py \
     --dataset_name emnist \
     --batch_size 384 \
@@ -11,7 +11,7 @@ python main_pretrain.py \
     --epochs 800 \
     --log_freq 40 \
     --vae \
-    --kld_beta 2 \
+    --kld_beta 1 \
     --invisible_lr_scale 0.1 \
     --mask_ratio 0.75 \
     --partial_vae \
