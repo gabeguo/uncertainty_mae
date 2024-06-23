@@ -1,14 +1,14 @@
-output_path=/local/zemel/gzg2104/_emnist_models/06_22_24/common_encoder/beta5_blr_1e-4
+output_path=/local/zemel/gzg2104/_emnist_models/06_22_24/common_encoder/beta5_blr_1e-3_warmup_60_total_600
 python main_pretrain.py \
     --dataset_name emnist \
     --batch_size 384 \
-    --blr 1e-4 \
+    --blr 1e-3 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
-    --warmup_epochs 40 \
-    --epochs 800 \
+    --warmup_epochs 60 \
+    --epochs 600 \
     --log_freq 40 \
     --vae \
     --kld_beta 5 \
