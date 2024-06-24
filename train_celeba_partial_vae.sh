@@ -1,8 +1,8 @@
-output_path=/local/zemel/gzg2104/_celeba_models/06_24_24/common_encoder/initialTry
+output_path=/local/zemel/gzg2104/_celeba_models/06_24_24/common_encoder/blr5e-4
 python main_pretrain.py \
     --dataset_name celeba \
     --batch_size 384 \
-    --blr 1e-4 \
+    --blr 5e-4 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
