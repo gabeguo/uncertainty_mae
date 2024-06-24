@@ -202,9 +202,10 @@ def main(args):
         emnist_mean = np.array([0.176, 0.176, 0.176])
         emnist_std = np.array([0.328, 0.328, 0.328])
         emnist_transform = transforms.Compose([
-                transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
-                transforms.RandomHorizontalFlip(),
+                lambda img: transforms.functional.rotate(img, -90),
+                lambda img: transforms.functional.hflip(img),
                 transforms.Grayscale(num_output_channels=3),
+                transforms.Resize((224, 224), interpolation=3),
                 transforms.ToTensor(),
                 transforms.Normalize(emnist_mean, emnist_std)
             ])
