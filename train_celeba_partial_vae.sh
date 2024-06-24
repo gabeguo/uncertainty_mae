@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_celeba_models/06_24_24/common_encoder/blr5e-4
+output_path=/local/zemel/gzg2104/_celeba_models/06_24_24/common_encoder/blr5e-4_beta5
 python main_pretrain.py \
     --dataset_name celeba \
     --batch_size 384 \
@@ -11,7 +11,7 @@ python main_pretrain.py \
     --epochs 400 \
     --log_freq 20 \
     --vae \
-    --kld_beta 10 \
+    --kld_beta 5 \
     --invisible_lr_scale 0.1 \
     --mask_ratio 0.75 \
     --partial_vae \
