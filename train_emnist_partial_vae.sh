@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_emnist_models/06_23_24/common_encoder/beta5_eps_1e-4_blr_1e-3
+output_path=/local/zemel/gzg2104/_emnist_models/06_23_24/common_encoder/beta5_eps_1e-4_blr_1e-3_400total
 python main_pretrain.py \
     --dataset_name emnist \
     --batch_size 384 \
@@ -8,7 +8,7 @@ python main_pretrain.py \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
-    --epochs 800 \
+    --epochs 400 \
     --log_freq 40 \
     --vae \
     --kld_beta 5 \
