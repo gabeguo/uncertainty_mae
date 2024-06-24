@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_emnist_models/06_24_24/common_encoder/beta5_blr5e-5_eps1e-8
+output_path=/local/zemel/gzg2104/_emnist_models/06_24_24/common_encoder/blr5e-5
 python main_pretrain.py \
     --dataset_name emnist \
     --batch_size 384 \
