@@ -1,8 +1,8 @@
-output_path=/local/zemel/gzg2104/_emnist_models/06_24_24/common_encoder/beta5_blr1e-4_eps1e-8/warmup20_total400_decay0_01
+output_path=/local/zemel/gzg2104/_emnist_models/06_24_24/common_encoder/beta5_blr5e-5_eps1e-8
 python main_pretrain.py \
     --dataset_name emnist \
     --batch_size 384 \
-    --blr 1e-4 \
+    --blr 5e-5 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
