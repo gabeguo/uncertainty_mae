@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_cifar_models/06_25_24_commonEncoder_noZeroConv
+output_path=/local/zemel/gzg2104/_cifar_models/06_25_24_commonEncoder_yesZeroConv
 python main_pretrain.py \
     --dataset_name cifar \
     --batch_size 384 \
@@ -20,5 +20,4 @@ python main_pretrain.py \
     --weight_decay 0.025 \
     --mixed_precision \
     --wandb_project cifar_pretrain \
-    --same_encoder \
-    --disable_zero_conv
+    --same_encoder
