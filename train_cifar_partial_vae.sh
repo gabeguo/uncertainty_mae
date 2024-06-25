@@ -20,5 +20,5 @@ python main_pretrain.py \
     --weight_decay 0.025 \
     --mixed_precision \
     --wandb_project cifar_pretrain \
-    --common_encoder \
+    --same_encoder \
     --disable_zero_conv
