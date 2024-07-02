@@ -97,6 +97,7 @@ class UncertaintyMAE(nn.Module):
             
             keep_indices = torch.where(mask_layout == 1)[0]
             mask_indices = torch.where(mask_layout == 0)[0]
+            # does it by batch
             keep_indices = keep_indices.reshape(1, -1).expand(N, -1)
             mask_indices = mask_indices.reshape(1, -1).expand(N, -1)
         else:

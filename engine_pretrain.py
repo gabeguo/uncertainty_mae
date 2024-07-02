@@ -52,12 +52,21 @@ def train_one_epoch(model: torch.nn.Module,
             if isinstance(model, UncertaintyMAE):
                 if args.dataset_name == 'coco':
                     mask_layout = the_data['token_mask'].to(device=samples.device)
-                    mask_layout = mask_layout.flatten()
-                    keep_indices = torch.where(mask_layout == 1)[0]
-                    mask_indices = torch.where(mask_layout == 0)[0]
-                    keep_indices = keep_indices.reshape(1, -1)
-                    mask_indices = mask_indices.reshape(1, -1)
+                    B = mask_layout.shape[0]
+                    assert mask_layout.shape == (B, 14, 14), f"{mask_layout.shape}"
+                    mask_layout = mask_layout.reshape(B, -1)
+                    keep_indices = torch.where(mask_layout == 1)
+                    mask_indices = torch.where(mask_layout == 0)
+                    assert keep_indices[0][0] == keep_indices[0][1] # assert that it's blocked by batch
+                    assert mask_indices[0][-1] == mask_indices[0][-2]
+                    keep_indices = keep_indices[1].reshape(B, -1) # patches to keep by image
+                    mask_indices = mask_indices[1].reshape(B, -1)
+                    assert keep_indices.shape[0] == mask_indices.shape[0] == B
+                    assert keep_indices.shape[1] + mask_indices.shape[1] == 14 * 14
+                    assert len(keep_indices.shape) == 2 and len(mask_indices.shape) == 2
                     ids_shuffle = torch.cat((keep_indices, mask_indices), dim=1)
+                    assert ids_shuffle.shape == (B, 14 * 14)
+                    # keep_indices should be B * L
                     mask_ratio = 1 - keep_indices.shape[1] / ids_shuffle.shape[1]
                     force_mask = (keep_indices, mask_indices)
                 else:
