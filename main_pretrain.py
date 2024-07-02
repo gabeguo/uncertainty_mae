@@ -2,6 +2,7 @@ import argparse
 import datetime
 import json
 import numpy as np
+import random
 import os
 import time
 from pathlib import Path
@@ -12,7 +13,8 @@ import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-
+import torchvision.transforms.functional as TF
+from torchvision.transforms import v2
 import timm
 
 assert timm.__version__ == "0.3.2"  # version check
@@ -231,6 +233,95 @@ def main(args):
                             cache_dir='/local/zemel/gzg2104/datasets')
 
         dataset_train.set_transform(transform_wrapper)
+    elif args.dataset_name == 'coco':
+        ds = load_dataset("detection-datasets/coco")
+        dataset_train = ds['train']
+        
+        the_pre_transform = transforms.Compose([
+            transforms.ToTensor(),
+            v2.RGB()
+        ])
+
+        # Thanks https://discuss.pytorch.org/t/torchvision-transfors-how-to-perform-identical-transform-on-both-image-and-target/10606/7
+        def the_post_transform(image, mask):
+            image = TF.to_pil_image(image)
+            mask = TF.to_pil_image(mask)
+            # Resize
+            i_dim = int((1 + 0.1 * random.random()) * 256)
+            j_dim = int((1 + 0.1 * random.random()) * 256)
+            assert i_dim > 224 and j_dim > 224
+            resize = transforms.Resize(size=(i_dim, j_dim))
+            image = resize(image)
+            mask = resize(mask)
+
+            # Random crop
+            i, j, h, w = transforms.RandomCrop.get_params(
+                image, output_size=(224, 224))
+            image = TF.crop(image, i, j, h, w)
+            mask = TF.crop(mask, i, j, h, w)
+
+            # Random horizontal flipping
+            if random.random() > 0.5:
+                image = TF.hflip(image)
+                mask = TF.hflip(mask)
+
+            # Transform to tensor
+            normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                std=[0.229, 0.224, 0.225])
+            image = TF.to_tensor(image)
+            image = normalize(image)
+            mask = TF.to_tensor(mask)
+            return image, mask
+
+        def transform_function(img_dict):
+            img_dict['token_mask'] = [None for _ in range(len(img_dict['image']))]
+            for img_idx in range(len(img_dict['image'])):
+                img_dict['image'][img_idx] = the_pre_transform(img_dict['image'][img_idx])
+
+                # pick a bbox
+                the_bboxes = img_dict['objects'][img_idx]['bbox']
+                curr_bbox = random.choice(the_bboxes)
+                x_min, y_min, x_max, y_max = [int(coord) for coord in curr_bbox]
+
+                # mask in true coordinate space
+                fine_mask = torch.ones_like(img_dict['image'][img_idx])
+                assert len(fine_mask.shape) == 3, f"{fine_mask.shape}"
+                assert fine_mask.shape[0] == 3, f"{fine_mask.shape}"
+                fine_mask[:, y_min:y_max, x_min:x_max] = 0
+                # do transform only after applying mask
+
+                # transform image and fine mask together
+                img_dict['image'][img_idx], fine_mask = the_post_transform(image=img_dict['image'][img_idx], mask=fine_mask)
+                
+                # set token mask
+                fine_mask = fine_mask[0]
+                img_dict['token_mask'][img_idx] = create_token_mask(fine_mask)
+
+            return img_dict
+
+        def create_token_mask(fine_mask, dims=(14, 14)):
+            assert len(fine_mask.shape) == 2
+            assert fine_mask.shape[0] == fine_mask.shape[1]
+            assert len(dims) == 2
+            assert dims[0] == dims[1]
+
+            mask_layout = torch.ones(dims)
+
+            for i in range(dims[0]):
+                for j in range(dims[1]):
+                    fine_i_low = int(i / dims[0] * fine_mask.shape[0])
+                    fine_j_low = int(j / dims[1] * fine_mask.shape[1])
+                    fine_i_high = int((i + 1) / dims[0] * fine_mask.shape[0])
+                    fine_j_high = int((j + 1) / dims[1] * fine_mask.shape[1])
+
+                    if torch.sum(fine_mask[fine_i_low:fine_i_high, fine_j_low:fine_j_high]) \
+                            < (fine_i_high - fine_i_low) * (fine_j_high - fine_j_low):
+                        mask_layout[i, j] = 0
+
+            return mask_layout
+
+        dataset_train.set_transform(transform_function)
+
     else:
         dataset_train = datasets.ImageNet(args.data_path, split="train", 
             transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))

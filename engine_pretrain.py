@@ -38,7 +38,7 @@ def train_one_epoch(model: torch.nn.Module,
         print('log_dir: {}'.format(log_writer.log_dir))
 
     for data_iter_step, the_data in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
-        if args.dataset_name == 'imagenet_sketch':
+        if args.dataset_name in ['imagenet_sketch', 'coco']:
             samples = the_data['image']
         else:
             (samples, _) = the_data
@@ -48,17 +48,25 @@ def train_one_epoch(model: torch.nn.Module,
 
         samples = samples.to(device, non_blocking=True)
 
-        if args.mixed_precision:
-            with torch.cuda.amp.autocast():
-                if isinstance(model, UncertaintyMAE):
-                    loss, pred, mask, reconstruction_loss, kld_loss = \
-                        model(samples, mask_ratio=args.mask_ratio, return_component_losses=True)
-                else:
-                    loss, _, _ = model(samples, mask_ratio=args.mask_ratio)
-        else:
+        with torch.cuda.amp.autocast(enable=args.mixed_precision):
             if isinstance(model, UncertaintyMAE):
+                if args.dataset_name == 'coco':
+                    mask_layout = the_data['token_mask'].to(device=samples.device)
+                    mask_layout = mask_layout.flatten()
+                    keep_indices = torch.where(mask_layout == 1)[0]
+                    mask_indices = torch.where(mask_layout == 0)[0]
+                    keep_indices = keep_indices.reshape(1, -1)
+                    mask_indices = mask_indices.reshape(1, -1)
+                    ids_shuffle = torch.cat((keep_indices, mask_indices), dim=1)
+                    mask_ratio = 1 - keep_indices.shape[1] / ids_shuffle.shape[1]
+                    force_mask = (keep_indices, mask_indices)
+                else:
+                    mask_ratio = args.mask_ratio
+                    force_mask = None
+
                 loss, pred, mask, reconstruction_loss, kld_loss = \
-                    model(samples, mask_ratio=args.mask_ratio, return_component_losses=True)
+                    model(samples, mask_ratio=mask_ratio, return_component_losses=True, 
+                          force_mask=force_mask)
             else:
                 loss, _, _ = model(samples, mask_ratio=args.mask_ratio)
 
