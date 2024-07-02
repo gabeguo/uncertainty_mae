@@ -297,7 +297,7 @@ def main(args):
                 fine_mask = fine_mask[0]
                 img_dict['token_mask'][img_idx] = create_token_mask(fine_mask)
 
-            return img_dict
+            return {'image':img_dict['image'], 'token_mask':img_dict['token_mask']}
 
         def create_token_mask(fine_mask, dims=(14, 14)):
             assert len(fine_mask.shape) == 2
