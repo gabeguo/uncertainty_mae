@@ -48,7 +48,7 @@ def train_one_epoch(model: torch.nn.Module,
 
         samples = samples.to(device, non_blocking=True)
 
-        with torch.cuda.amp.autocast(enable=args.mixed_precision):
+        with torch.cuda.amp.autocast(enabled=args.mixed_precision):
             if isinstance(model, UncertaintyMAE):
                 if args.dataset_name == 'coco':
                     mask_layout = the_data['token_mask'].to(device=samples.device)
