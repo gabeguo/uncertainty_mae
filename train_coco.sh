@@ -9,7 +9,7 @@ python main_pretrain.py \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
     --epochs 800 \
-    --log_freq 50 \
+    --log_freq 40 \
     --vae \
     --kld_beta 25 \
     --invisible_lr_scale 0.1 \
