@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_coco_models/07_02_24/beta5_blr1_5e-4
+output_path=/local/zemel/gzg2104/_coco_models/07_03_24/beta25_blr1_5e-4
 python main_pretrain.py \
     --dataset_name coco \
     --batch_size 384 \
@@ -11,7 +11,7 @@ python main_pretrain.py \
     --epochs 800 \
     --log_freq 40 \
     --vae \
-    --kld_beta 5 \
+    --kld_beta 25 \
     --invisible_lr_scale 0.1 \
     --mask_ratio 0.75 \
     --partial_vae \
