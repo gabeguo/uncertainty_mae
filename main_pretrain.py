@@ -38,6 +38,85 @@ import coco_transforms
 
 import wandb
 
+import torch.multiprocessing as mp
+from torch.utils.data.distributed import DistributedSampler
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.distributed import init_process_group, destroy_process_group
+import os
+
+os.environ['TORCH_DISTRIBUTED_DEBUG'] = 'INFO'
+
+# Thanks https://pytorch.org/tutorials/beginner/ddp_series_multigpu.html
+
+def ddp_setup(rank, world_size):
+    """
+    Args:
+        rank: Unique identifier of each process
+        world_size: Total number of processes
+    """
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12355"
+    init_process_group(backend="nccl", rank=rank, world_size=world_size)
+    torch.cuda.set_device(rank)
+
+class Trainer:
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        data_loader_train: torch.utils.data.DataLoader,
+        optimizer: torch.optim.Optimizer,
+        gpu_id: int,
+        loss_scaler,
+        log_writer,
+        model_without_ddp,
+        args
+    ) -> None:
+        self.gpu_id = gpu_id
+        self.model = model.to(gpu_id)
+        self.data_loader_train = data_loader_train
+        self.optimizer = optimizer
+        self.loss_scaler = loss_scaler
+        self.log_writer = log_writer
+        self.model = DDP(model, device_ids=[gpu_id], find_unused_parameters=True)
+        self.model_without_ddp = model_without_ddp
+        self.args = args
+
+        return
+
+    def _run_epoch(self, epoch):
+        print(f"[GPU{self.gpu_id}] Epoch {epoch} | Steps: {len(self.data_loader_train)}")
+        self.data_loader_train.sampler.set_epoch(epoch)
+        train_stats = train_one_epoch(
+            model=self.model, data_loader=self.data_loader_train,
+            optimizer=self.optimizer, device=self.gpu_id, epoch=epoch, loss_scaler=self.loss_scaler,
+            max_norm=5, # Added this part
+            log_writer=self.log_writer,
+            args=self.args
+        )
+
+        if self.gpu_id == 0:
+            if self.args.output_dir and (epoch % self.args.log_freq == 0 or epoch + 1 == self.args.epochs):
+                misc.save_model(
+                    args=self.args, model=self.model.module, model_without_ddp=self.model_without_ddp, 
+                    optimizer=self.optimizer, loss_scaler=self.loss_scaler, epoch=epoch)
+
+            # TODO: may be collective call??
+            log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
+                            'epoch': epoch,}
+            wandb.log(log_stats, step=epoch)
+
+            if self.args.output_dir and misc.is_main_process():
+                if self.log_writer is not None:
+                    self.log_writer.flush()
+                with open(os.path.join(self.args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
+                    f.write(json.dumps(log_stats) + "\n")
+
+    def train(self):
+        for epoch in range(self.args.start_epoch, self.args.epochs):
+            self._run_epoch(epoch)
+        return
+
+
 def get_args_parser():
     parser = argparse.ArgumentParser('MAE pre-training', add_help=False)
     parser.add_argument('--batch_size', default=64, type=int,
@@ -158,8 +237,10 @@ def get_args_parser():
 
     return parser
 
-def main(args):
+def main(rank, args, world_size):
     
+    ddp_setup(rank, world_size)
+
     misc.init_distributed_mode(args)
 
     print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
@@ -246,18 +327,15 @@ def main(args):
     
     num_tasks = misc.get_world_size()
     global_rank = misc.get_rank()
-    train_sampler = torch.utils.data.RandomSampler(dataset_train)
+    train_sampler = DistributedSampler(dataset_train)
     print("Sampler_train = %s" % str(train_sampler))
-    # val_sampler = torch.utils.data.SequentialSampler(dataset_val)
-
 
     data_loader_train = torch.utils.data.DataLoader(
-        dataset_train, sampler=train_sampler, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True, drop_last=False
+        dataset_train, sampler=train_sampler, batch_size=args.batch_size, 
+        num_workers=args.num_workers, pin_memory=True, drop_last=False,
+        shuffle=False
     )
-    # why no validation?
-    # data_loader_val = torch.utils.data.DataLoader(
-    #     dataset_val, sampler=val_sampler, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True, drop_last=False
-    # )
+
     if global_rank == 0 and args.log_dir is not None:
         os.makedirs(args.log_dir, exist_ok=True)
         log_writer = SummaryWriter(log_dir=args.log_dir)
@@ -301,8 +379,9 @@ def main(args):
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
     print(type(model))
-    print("Model = %s" % str(model_without_ddp))
-    print('number of params (M): %.2f' % (n_parameters / 1.e6))
+    if rank == 0:
+        print("Model = %s" % str(model_without_ddp))
+        print('number of params (M): %.2f' % (n_parameters / 1.e6))
 
     eff_batch_size = args.batch_size * args.accum_iter * misc.get_world_size()
     
@@ -343,59 +422,34 @@ def main(args):
 
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
 
-    wandb_name = args.output_dir
+    if rank == 0:
+        wandb_name = args.output_dir
+        if args.disable_wandb:
+            wandb.init(mode='disabled')
+        else:
+            wandb.init(config=args, 
+                        project=args.wandb_project, 
+                        name=wandb_name)
+        wandb.watch(model)
 
-    if args.disable_wandb:
-        wandb.init(mode='disabled')
-    else:
-        wandb.init(config=args, 
-                    project=args.wandb_project, 
-                    name=wandb_name)
-    wandb.watch(model)
     print(f"Start training for {args.epochs} epochs")
-    start_time = time.time()
 
-    for epoch in range(args.start_epoch, args.epochs):
-        if args.distributed:
-            data_loader_train.sampler.set_epoch(epoch)
-        if (args.frozen_backbone_epochs is not None) and \
-                epoch == args.frozen_backbone_epochs:
-            # unfreeze backbone
-            for param in model.parameters():
-                param.requires_grad = True
-            for param in model.visible_mae.parameters():
-                assert param.requires_grad
-            print('unfrozen!')
-        train_stats = train_one_epoch(
-            model, data_loader_train,
-            optimizer, device, epoch, loss_scaler,
-            5, # Added this part
-            log_writer=log_writer,
-            args=args
-        )
-        if args.output_dir and (epoch % args.log_freq == 0 or epoch + 1 == args.epochs):
-            misc.save_model(
-                args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
-                loss_scaler=loss_scaler, epoch=epoch)
+    trainer = Trainer(model=model, data_loader_train=data_loader_train, optimizer=optimizer,
+                      gpu_id=rank, loss_scaler=loss_scaler, log_writer=log_writer,
+                      model_without_ddp=model_without_ddp, args=args)
+    trainer.train()
 
-        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                        'epoch': epoch,}
-        wandb.log(log_stats, step=epoch)
-
-        if args.output_dir and misc.is_main_process():
-            if log_writer is not None:
-                log_writer.flush()
-            with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
-                f.write(json.dumps(log_stats) + "\n")
-
-    total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print('Training time {}'.format(total_time_str))
+    destroy_process_group()
 
 if __name__ == '__main__':
     torch.autograd.set_detect_anomaly(True)
     args = get_args_parser()
     args = args.parse_args()
+
+    world_size = torch.cuda.device_count()
+    print(f"{world_size} gpus")
+
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-    main(args)
+    
+    mp.spawn(main, args=(args, world_size), nprocs=world_size)
