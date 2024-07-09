@@ -11,7 +11,6 @@ python main_pretrain.py \
     --epochs 800 \
     --log_freq 40 \
     --kld_beta 0 \
-    --invisible_lr_scale 0 \
     --mask_ratio 0.75 \
     --dropout_ratio 0 \
     --eps 1e-6 \
