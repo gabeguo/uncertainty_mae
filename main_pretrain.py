@@ -396,6 +396,8 @@ def main(rank, args, world_size):
     
     # following timm: set wd as 0 for bias and norm layers
     if (args.invisible_lr_scale is not None) and (not args.same_encoder):
+        assert args.partial_vae
+        assert args.vae
         visible_params = optim_factory.add_weight_decay(model.visible_mae, args.weight_decay)
         assert len(visible_params) == 2
         if abs(args.invisible_lr_scale) <= 1e-8:
