@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_coco_models/07_05_24/beta50
+output_path=/local/zemel/gzg2104/_coco_models/07_09_24/vanilla_mae
 python main_pretrain.py \
     --dataset_name coco \
     --batch_size 384 \
@@ -10,11 +10,9 @@ python main_pretrain.py \
     --warmup_epochs 40 \
     --epochs 800 \
     --log_freq 40 \
-    --vae \
-    --kld_beta 50 \
-    --invisible_lr_scale 0.1 \
+    --kld_beta 0 \
+    --invisible_lr_scale 0 \
     --mask_ratio 0.75 \
-    --partial_vae \
     --dropout_ratio 0 \
     --eps 1e-6 \
     --weight_decay 0.025 \
