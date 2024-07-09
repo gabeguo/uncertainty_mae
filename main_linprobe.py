@@ -38,10 +38,12 @@ import models_vit
 
 from engine_finetune import train_one_epoch, evaluate
 import wandb
-from uncertainty_vit import ConfidenceIntervalViT
 from multi_head_mae import MultiHeadMAE
+from uncertainty_mae import UncertaintyMAE
 import models_mae
 
+import coco_transforms
+from datasets import load_dataset
 
 def get_args_parser():
     parser = argparse.ArgumentParser('MAE linear probing for image classification', add_help=False)
@@ -54,6 +56,7 @@ def get_args_parser():
     # Model parameters
     parser.add_argument('--model', default='vit_large_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
+    parser.add_argument('--num_vae_blocks', default=1, type=int)
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0,
@@ -126,6 +129,9 @@ def get_args_parser():
     
     parser.add_argument('--eval_weights', default='/home/gabeguo/uncertainty_mae/cifar100_linprobe_uncertainty/checkpoint-89.pth',
                         type=str, help='weights for evaluation')
+    
+    # Logging parameters
+    parser.add_argument('--wandb_project', type=str, default='linprobe')
 
     return parser
 
@@ -147,6 +153,15 @@ def set_model(args, model, weight_path):
             multi_head_mae.load_state_dict(checkpoint_model)
             checkpoint_model = multi_head_mae.median_mae.state_dict()
             print('load multi head MAE')
+        if any(['visible_mae' in the_key for the_key in checkpoint_model]):
+            visible_model = models_mae.__dict__['mae_' + args.model](vae=False)
+            invisible_model = models_mae.__dict__['mae_' + args.model](vae=True,
+                                    num_vae_blocks=args.num_vae_blocks, disable_zero_conv=True)
+            uncertainty_mae = UncertaintyMAE(visible_mae=visible_model, invisible_mae=invisible_model)
+            uncertainty_mae.load_state_dict(checkpoint_model)
+            checkpoint_model = uncertainty_mae.visible_mae.state_dict()
+            print('Uncertainty MAE')
+
     else:
         raise ValueError('model should be in checkpoint')
         checkpoint_model = checkpoint
@@ -182,10 +197,6 @@ def set_head(model, device):
         p.requires_grad = False
     for _, p in model.head.named_parameters():
         p.requires_grad = True
-    if isinstance(model, ConfidenceIntervalViT):
-        print('confidence interval ViT: unfreeze conv layer')
-        for _, p in model.fusion.named_parameters():
-            p.requires_grad = True
 
     model.to(device)
     return
@@ -225,8 +236,18 @@ def main(args):
     # dataset_train = datasets.ImageFolder(os.path.join(args.data_path, 'train'), transform=transform_train)
     # dataset_val = datasets.ImageFolder(os.path.join(args.data_path, 'val'), transform=transform_val)
 
-    dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train) if args.dataset_name == 'cifar' else datasets.ImageNet(args.data_path, split="train", transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
-    dataset_val = datasets.CIFAR100('../data', train=False, download=True, transform=transform_val) if args.dataset_name == 'cifar' else datasets.ImageNet(args.data_path, split="val", transform=transform_val, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
+    if args.dataset_name == 'cifar':
+        dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train)
+        dataset_val = datasets.CIFAR100('../data', train=False, download=True, transform=transform_val)
+    # elif args.dataset_name == 'coco':
+    #     ds = load_dataset("detection-datasets/coco")
+    #     dataset_train = ds['train']
+    #     dataset_train.set_transform(coco_transforms.transform_function)
+    #     dataset_val = ds['val']
+    #     dataset_val.set_transform(coco_transforms.transform_function)
+    else:
+        dataset_train = datasets.ImageNet(args.data_path, split="train", transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
+        dataset_val = datasets.ImageNet(args.data_path, split="val", transform=transform_val, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
 
     print(dataset_train)
     print(dataset_val)
@@ -296,16 +317,7 @@ def main(args):
 
     # for linear prob only
     # hack: revise model's head with BN
-    if use_uncertainty_encoder:
-        # TODO: implementation can be slightly more efficient
-        set_head(lower_model, device)
-        set_head(middle_model, device)
-        set_head(upper_model, device)
-        scale_factor = torch.load(args.scale_factor_path, map_location=args.device)
-        model = ConfidenceIntervalViT(lower_model=lower_model, middle_model=middle_model, upper_model=upper_model,
-                                      interval_scale=scale_factor)
-    else:
-        set_head(model, device)
+    set_head(model, device)
     model.cuda()
 
     model_without_ddp = model
@@ -346,7 +358,7 @@ def main(args):
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
         exit(0)
 
-    wandb.init(config=args, project='linprobe', name=f"{'CI' if use_uncertainty_encoder else 'regular'}")
+    wandb.init(config=args, project=args.wandb_project, name=args.output_dir)
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     max_accuracy = 0.0

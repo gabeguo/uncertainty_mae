@@ -1,11 +1,12 @@
 python main_linprobe.py \
     --model vit_base_patch16 \
-    --lower_bound_model /home/gabeguo/uncertainty_mae/cifar100_quantile/lower_encoder_mae.pt \
-    --point_bound_model /home/gabeguo/uncertainty_mae/cifar100_quantile/median_encoder_mae.pt \
-    --upper_bound_model /home/gabeguo/uncertainty_mae/cifar100_quantile/upper_encoder_mae.pt \
-    --scale_factor_path /home/gabeguo/uncertainty_mae/cifar100_quantile/interval_width.pt \
-    --data_path /home/gabeguo/data/cifar-100-python \
-    --nb_classes 100 \
-    --output_dir cifar100_linprobe_uncertainty \
+    --finetune /local/zemel/gzg2104/_coco_models/07_03_24/beta25_blr1_5e-4/checkpoint-720.pth \
+    --dataset_name imagenet \
+    --data_path /local/zemel/gzg2104/datasets/imagenet \
+    --nb_classes 1000 \
+    --output_dir /local/zemel/gzg2104/_coco_models/07_03_24/beta25_blr1_5e-4/finetune \
+    --batch_size 4096 \
+    --log_dir /local/zemel/gzg2104/logs \
+    --wandb_project linprobe_imagenet \
     --device cuda
 
