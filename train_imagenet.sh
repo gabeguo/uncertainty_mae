@@ -1,6 +1,7 @@
-output_path=/local/zemel/gzg2104/_imagenet_models/07_08_24/initialTry
+output_path=/local/zemel/gzg2104/_imagenet_models/07_09_24/initialTry
 python main_pretrain.py \
     --dataset_name imagenet \
+    --data_path /local/zemel/gzg2104/datasets/imagenet \
     --batch_size 384 \
     --blr 1.5e-4 \
     --accum_iter 1 \
