@@ -17,4 +17,5 @@ python main_pretrain.py \
     --weight_decay 0.025 \
     --mixed_precision \
     --wandb_project coco_pretrain \
-    --disable_zero_conv
+    --disable_zero_conv \
+    --master_port "12356"

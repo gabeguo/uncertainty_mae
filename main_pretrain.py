@@ -48,14 +48,14 @@ os.environ['TORCH_DISTRIBUTED_DEBUG'] = 'INFO'
 
 # Thanks https://pytorch.org/tutorials/beginner/ddp_series_multigpu.html
 
-def ddp_setup(rank, world_size):
+def ddp_setup(rank, world_size, master_port="12355"):
     """
     Args:
         rank: Unique identifier of each process
         world_size: Total number of processes
     """
     os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12355"
+    os.environ["MASTER_PORT"] = master_port
     init_process_group(backend="nccl", rank=rank, world_size=world_size)
     torch.cuda.set_device(rank)
 
@@ -230,6 +230,9 @@ def get_args_parser():
     parser.add_argument('--distributed', default=False, action='store_true',
                         help='do distributed training or no distributed training')
     
+    # my distributed training parameters
+    parser.add_argument('--master_port', default="12355", type=str)
+    
     # logging parameters
     parser.add_argument('--disable_wandb', action='store_true')
     parser.add_argument('--wandb_project', type=str, default='pretrain_mae_new')
@@ -239,7 +242,7 @@ def get_args_parser():
 
 def main(rank, args, world_size):
     
-    ddp_setup(rank, world_size)
+    ddp_setup(rank, world_size, args.master_port)
 
     misc.init_distributed_mode(args)
 
@@ -322,9 +325,11 @@ def main(rank, args, world_size):
         
         dataset_train.set_transform(coco_transforms.transform_function)
     else:
+        print('imagenet!')
         dataset_train = datasets.ImageNet(args.data_path, split="train", 
             transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
     
+        print(len(dataset_train))
     num_tasks = misc.get_world_size()
     global_rank = misc.get_rank()
     train_sampler = DistributedSampler(dataset_train)
