@@ -105,7 +105,7 @@ def train_one_epoch(model: torch.nn.Module,
         torch.cuda.synchronize()
 
         metric_logger.update(loss=loss_value)
-        if isinstance(model, UncertaintyMAE):
+        if isinstance(model, UncertaintyMAE) or isinstance(model.module, UncertaintyMAE):
             metric_logger.update(reconstruction_loss=reconstruction_loss)
             metric_logger.update(kld_loss=kld_loss)
 
