@@ -229,6 +229,7 @@ def get_args_parser():
     # logging parameters
     parser.add_argument('--disable_wandb', action='store_true')
     parser.add_argument('--wandb_project', type=str, default='linprobe')
+    parser.add_argument('--log_freq', type=int, default=10)
 
     return parser
 
