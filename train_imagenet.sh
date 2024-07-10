@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_imagenet_models/07_09_24/initialTry
+output_path=/local/zemel/gzg2104/_imagenet_models/07_10_24/beta10
 python main_pretrain.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
@@ -12,13 +12,13 @@ python main_pretrain.py \
     --epochs 800 \
     --log_freq 40 \
     --vae \
-    --kld_beta 25 \
+    --kld_beta 10 \
     --invisible_lr_scale 0.1 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
     --eps 1e-6 \
-    --weight_decay 0.025 \
+    --weight_decay 0.05 \
     --mixed_precision \
     --wandb_project imagenet_pretrain \
     --disable_zero_conv
