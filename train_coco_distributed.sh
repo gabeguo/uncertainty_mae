@@ -40,4 +40,5 @@ python $WORKDIR/submitit_pretrain.py \
     --weight_decay 0.025 \
     --mixed_precision \
     --wandb_project coco_pretrain \
+    --wandb_name initialTrySlurm \
     --disable_zero_conv

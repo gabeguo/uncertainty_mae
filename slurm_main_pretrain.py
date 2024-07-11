@@ -150,6 +150,7 @@ def get_args_parser():
     # logging parameters
     parser.add_argument('--disable_wandb', action='store_true')
     parser.add_argument('--wandb_project', type=str, default='pretrain_mae_new')
+    parser.add_argument('--wandb_name', type=str, default='generic_run')
                     
 
     return parser
@@ -347,15 +348,14 @@ def main(args):
 
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
 
-    wandb_name = args.output_dir
-
     if args.gpu == 0:
         if args.disable_wandb:
             wandb.init(mode='disabled')
         else:
+            wandb.login()
             wandb.init(config=args, 
                         project=args.wandb_project, 
-                        name=wandb_name)
+                        name=args.wandb_name)
         wandb.watch(model)
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
