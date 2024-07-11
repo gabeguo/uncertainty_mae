@@ -38,10 +38,105 @@ import models_vit
 
 from engine_finetune import train_one_epoch, evaluate
 import wandb
-from uncertainty_vit import ConfidenceIntervalViT
 from multi_head_mae import MultiHeadMAE
+from uncertainty_mae import UncertaintyMAE
 import models_mae
 
+import torch.multiprocessing as mp
+from torch.utils.data.distributed import DistributedSampler
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.distributed import init_process_group, destroy_process_group
+import os
+
+import coco_transforms
+from datasets import load_dataset
+
+# Thanks https://pytorch.org/tutorials/beginner/ddp_series_multigpu.html
+
+def ddp_setup(rank, world_size, master_port="12355"):
+    """
+    Args:
+        rank: Unique identifier of each process
+        world_size: Total number of processes
+    """
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = master_port
+    init_process_group(backend="nccl", rank=rank, world_size=world_size)
+    torch.cuda.set_device(rank)
+
+class Trainer:
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        data_loader_train: torch.utils.data.DataLoader,
+        data_loader_test: torch.utils.data.DataLoader,
+        optimizer: torch.optim.Optimizer,
+        gpu_id: int,
+        loss_scaler,
+        log_writer,
+        model_without_ddp,
+        args
+    ) -> None:
+        self.gpu_id = gpu_id
+        self.model = model.to(gpu_id)
+        self.data_loader_train = data_loader_train
+        self.data_loader_test = data_loader_test
+        self.optimizer = optimizer
+        self.loss_scaler = loss_scaler
+        self.log_writer = log_writer
+        self.model = DDP(model, device_ids=[gpu_id], find_unused_parameters=True)
+        self.model_without_ddp = model_without_ddp
+        self.args = args
+
+        self.criterion = torch.nn.CrossEntropyLoss()
+        print("criterion = %s" % str(self.criterion))
+
+        self.max_accuracy = 0
+
+        return
+
+    def _run_epoch(self, epoch):
+        print(f"[GPU{self.gpu_id}] Epoch {epoch} | Steps: {len(self.data_loader_train)}")
+        self.data_loader_train.sampler.set_epoch(epoch)
+        train_stats = train_one_epoch(
+            model=self.model, criterion=self.criterion, data_loader=self.data_loader_train,
+            optimizer=self.optimizer, device=self.gpu_id, epoch=epoch, loss_scaler=self.loss_scaler,
+            max_norm=5, # Added this part
+            log_writer=self.log_writer,
+            args=self.args
+        )
+
+        test_stats = evaluate(self.data_loader_test, self.model, self.gpu_id)
+        print(f"Accuracy of the network on the {len(self.data_loader_test.dataset)} test images: {test_stats['acc1']:.1f}%")
+        self.max_accuracy = max(self.max_accuracy, test_stats["acc1"])
+        print(f'Max accuracy: {self.max_accuracy:.2f}%')
+
+        if self.gpu_id == 0:
+            if self.args.output_dir and (epoch % self.args.log_freq == 0 or epoch + 1 == self.args.epochs):
+                misc.save_model(
+                    args=self.args, model=self.model.module, model_without_ddp=self.model_without_ddp, 
+                    optimizer=self.optimizer, loss_scaler=self.loss_scaler, epoch=epoch)
+
+            # TODO: may be collective call??
+            log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
+                        **{f'test_{k}': v for k, v in test_stats.items()},
+                        'epoch': epoch,
+                        #'n_parameters': n_parameters
+                        }
+            wandb.log(log_stats, step=epoch)
+
+            if self.args.output_dir and misc.is_main_process():
+                if self.log_writer is not None:
+                    self.log_writer.flush()
+                with open(os.path.join(self.args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
+                    f.write(json.dumps(log_stats) + "\n")
+
+        return
+    
+    def train(self):
+        for epoch in range(self.args.start_epoch, self.args.epochs):
+            self._run_epoch(epoch)
+        return
 
 def get_args_parser():
     parser = argparse.ArgumentParser('MAE linear probing for image classification', add_help=False)
@@ -54,6 +149,7 @@ def get_args_parser():
     # Model parameters
     parser.add_argument('--model', default='vit_large_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
+    parser.add_argument('--num_vae_blocks', default=1, type=int)
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0,
@@ -126,6 +222,14 @@ def get_args_parser():
     
     parser.add_argument('--eval_weights', default='/home/gabeguo/uncertainty_mae/cifar100_linprobe_uncertainty/checkpoint-89.pth',
                         type=str, help='weights for evaluation')
+    
+    # my distributed training parameters
+    parser.add_argument('--master_port', default="12355", type=str)
+
+    # logging parameters
+    parser.add_argument('--disable_wandb', action='store_true')
+    parser.add_argument('--wandb_project', type=str, default='linprobe')
+    parser.add_argument('--log_freq', type=int, default=10)
 
     return parser
 
@@ -147,6 +251,15 @@ def set_model(args, model, weight_path):
             multi_head_mae.load_state_dict(checkpoint_model)
             checkpoint_model = multi_head_mae.median_mae.state_dict()
             print('load multi head MAE')
+        if any(['visible_mae' in the_key for the_key in checkpoint_model]):
+            visible_model = models_mae.__dict__['mae_' + args.model](vae=False)
+            invisible_model = models_mae.__dict__['mae_' + args.model](vae=True,
+                                    num_vae_blocks=args.num_vae_blocks, disable_zero_conv=True)
+            uncertainty_mae = UncertaintyMAE(visible_mae=visible_model, invisible_mae=invisible_model)
+            uncertainty_mae.load_state_dict(checkpoint_model)
+            checkpoint_model = uncertainty_mae.visible_mae.state_dict()
+            print('Uncertainty MAE')
+
     else:
         raise ValueError('model should be in checkpoint')
         checkpoint_model = checkpoint
@@ -182,10 +295,6 @@ def set_head(model, device):
         p.requires_grad = False
     for _, p in model.head.named_parameters():
         p.requires_grad = True
-    if isinstance(model, ConfidenceIntervalViT):
-        print('confidence interval ViT: unfreeze conv layer')
-        for _, p in model.fusion.named_parameters():
-            p.requires_grad = True
 
     model.to(device)
     return
@@ -196,7 +305,10 @@ def create_model(args):
         global_pool=args.global_pool,
     )
 
-def main(args):
+def main(rank, args, world_size):
+
+    ddp_setup(rank, world_size, args.master_port)
+
     misc.init_distributed_mode(args)
 
     print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
@@ -225,33 +337,31 @@ def main(args):
     # dataset_train = datasets.ImageFolder(os.path.join(args.data_path, 'train'), transform=transform_train)
     # dataset_val = datasets.ImageFolder(os.path.join(args.data_path, 'val'), transform=transform_val)
 
-    dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train) if args.dataset_name == 'cifar' else datasets.ImageNet(args.data_path, split="train", transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
-    dataset_val = datasets.CIFAR100('../data', train=False, download=True, transform=transform_val) if args.dataset_name == 'cifar' else datasets.ImageNet(args.data_path, split="val", transform=transform_val, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
+    if args.dataset_name == 'cifar':
+        dataset_train = datasets.CIFAR100('../data', train=True, download=True, transform=transform_train)
+        dataset_val = datasets.CIFAR100('../data', train=False, download=True, transform=transform_val)
+    # elif args.dataset_name == 'coco':
+    #     ds = load_dataset("detection-datasets/coco")
+    #     dataset_train = ds['train']
+    #     dataset_train.set_transform(coco_transforms.transform_function)
+    #     dataset_val = ds['val']
+    #     dataset_val.set_transform(coco_transforms.transform_function)
+    else:
+        dataset_train = datasets.ImageNet(args.data_path, split="train", transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
+        dataset_val = datasets.ImageNet(args.data_path, split="val", transform=transform_val, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
 
     print(dataset_train)
     print(dataset_val)
 
-    if True:  # args.distributed:
-        num_tasks = misc.get_world_size()
-        global_rank = misc.get_rank()
-        sampler_train = torch.utils.data.DistributedSampler(
-            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
-        )
-        print("Sampler_train = %s" % str(sampler_train))
-        if args.dist_eval:
-            if len(dataset_val) % num_tasks != 0:
-                print('Warning: Enabling distributed evaluation with an eval dataset not divisible by process number. '
-                      'This will slightly alter validation results as extra duplicate entries are added to achieve '
-                      'equal num of samples per-process.')
-            sampler_val = torch.utils.data.DistributedSampler(
-                dataset_val, num_replicas=num_tasks, rank=global_rank, shuffle=True)  # shuffle=True to reduce monitor bias
-        else:
-            sampler_val = torch.utils.data.SequentialSampler(dataset_val)
-    else:
-        sampler_train = torch.utils.data.RandomSampler(dataset_train)
-        sampler_val = torch.utils.data.SequentialSampler(dataset_val)
+    sampler_train = torch.utils.data.DistributedSampler(
+        dataset_train
+    )
+    print("Sampler_train = %s" % str(sampler_train))
+    sampler_val = torch.utils.data.DistributedSampler(
+        dataset_val
+    )
 
-    if global_rank == 0 and args.log_dir is not None and not args.eval:
+    if rank == 0 and args.log_dir is not None and not args.eval:
         os.makedirs(args.log_dir, exist_ok=True)
         log_writer = SummaryWriter(log_dir=args.log_dir)
     else:
@@ -263,6 +373,7 @@ def main(args):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
+        shuffle=False
     )
 
     data_loader_val = torch.utils.data.DataLoader(
@@ -270,7 +381,8 @@ def main(args):
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
-        drop_last=False
+        drop_last=False,
+        shuffle=False
     )
 
     use_uncertainty_encoder = (args.lower_bound_model is not None) \
@@ -296,16 +408,7 @@ def main(args):
 
     # for linear prob only
     # hack: revise model's head with BN
-    if use_uncertainty_encoder:
-        # TODO: implementation can be slightly more efficient
-        set_head(lower_model, device)
-        set_head(middle_model, device)
-        set_head(upper_model, device)
-        scale_factor = torch.load(args.scale_factor_path, map_location=args.device)
-        model = ConfidenceIntervalViT(lower_model=lower_model, middle_model=middle_model, upper_model=upper_model,
-                                      interval_scale=scale_factor)
-    else:
-        set_head(model, device)
+    set_head(model, device)
     model.cuda()
 
     model_without_ddp = model
@@ -325,17 +428,9 @@ def main(args):
     print("accumulate grad iterations: %d" % args.accum_iter)
     print("effective batch size: %d" % eff_batch_size)
 
-    if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-        model_without_ddp = model.module
-
     optimizer = LARS(model_without_ddp.head.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     print(optimizer)
     loss_scaler = NativeScaler()
-
-    criterion = torch.nn.CrossEntropyLoss()
-
-    print("criterion = %s" % str(criterion))
 
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
 
@@ -346,55 +441,32 @@ def main(args):
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
         exit(0)
 
-    wandb.init(config=args, project='linprobe', name=f"{'CI' if use_uncertainty_encoder else 'regular'}")
+    if rank == 0:
+        wandb_name = args.output_dir
+        if args.disable_wandb:
+            wandb.init(mode='disabled')
+        else:
+            wandb.init(config=args, 
+                        project=args.wandb_project, 
+                        name=wandb_name)
+        wandb.watch(model)
     print(f"Start training for {args.epochs} epochs")
-    start_time = time.time()
-    max_accuracy = 0.0
-    for epoch in range(args.start_epoch, args.epochs):
-        if args.distributed:
-            data_loader_train.sampler.set_epoch(epoch)
-        train_stats = train_one_epoch(
-            model, criterion, data_loader_train,
-            optimizer, device, epoch, loss_scaler,
-            max_norm=None,
-            log_writer=log_writer,
-            args=args
-        )
-        if args.output_dir and (epoch % 10 == 0 or epoch + 1 == args.epochs):
-            misc.save_model(
-                args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
-                loss_scaler=loss_scaler, epoch=epoch)
-        test_stats = evaluate(data_loader_val, model, device)
-        print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
-        max_accuracy = max(max_accuracy, test_stats["acc1"])
-        print(f'Max accuracy: {max_accuracy:.2f}%')
 
-        if log_writer is not None:
-            log_writer.add_scalar('perf/test_acc1', test_stats['acc1'], epoch)
-            log_writer.add_scalar('perf/test_acc5', test_stats['acc5'], epoch)
-            log_writer.add_scalar('perf/test_loss', test_stats['loss'], epoch)
+    trainer = Trainer(model=model, 
+                      data_loader_train=data_loader_train, data_loader_test=data_loader_val,
+                      optimizer=optimizer,
+                      gpu_id=rank, loss_scaler=loss_scaler, log_writer=log_writer,
+                      model_without_ddp=model_without_ddp, args=args)
+    trainer.train()
 
-        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                        **{f'test_{k}': v for k, v in test_stats.items()},
-                        'epoch': epoch,
-                        'n_parameters': n_parameters}
-        
-        wandb.log(log_stats)
-
-        if args.output_dir and misc.is_main_process():
-            if log_writer is not None:
-                log_writer.flush()
-            with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
-                f.write(json.dumps(log_stats) + "\n")
-
-    total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print('Training time {}'.format(total_time_str))
-
+    destroy_process_group()
 
 if __name__ == '__main__':
     args = get_args_parser()
     args = args.parse_args()
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-    main(args)
+    
+    world_size = torch.cuda.device_count()
+    print(f"{world_size} gpus")
+    mp.spawn(main, args=(args, world_size), nprocs=world_size)

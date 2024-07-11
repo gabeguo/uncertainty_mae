@@ -22,13 +22,12 @@ from uncertainty_mae import UncertaintyMAE
 def train_one_epoch(model: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
-                    log_writer=None,
-                    args=None):
+                    log_writer=None, args=None):
     model.train(True)
     metric_logger = misc.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', misc.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
-    print_freq = 20
+    print_freq = 20 if device == 0 else len(data_loader)
 
     accum_iter = args.accum_iter
 
@@ -49,7 +48,7 @@ def train_one_epoch(model: torch.nn.Module,
         samples = samples.to(device, non_blocking=True)
 
         with torch.cuda.amp.autocast(enabled=args.mixed_precision):
-            if isinstance(model, UncertaintyMAE):
+            if isinstance(model.module, UncertaintyMAE):
                 if args.dataset_name == 'coco':
                     mask_layout = the_data['token_mask'].to(device=samples.device)
                     B = mask_layout.shape[0]
@@ -106,7 +105,7 @@ def train_one_epoch(model: torch.nn.Module,
         torch.cuda.synchronize()
 
         metric_logger.update(loss=loss_value)
-        if isinstance(model, UncertaintyMAE):
+        if isinstance(model, UncertaintyMAE) or isinstance(model.module, UncertaintyMAE):
             metric_logger.update(reconstruction_loss=reconstruction_loss)
             metric_logger.update(kld_loss=kld_loss)
 
