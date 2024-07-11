@@ -1,10 +1,25 @@
-output_path=/burg/zgroup/users/gzg2104/_coco_models/07_03_24/initial_try
+#!/bin/bash
+#SBATCH --account=zgroup
+#SBATCH --job-name=dummy_mae
+#SBATCH --output=mae.out
+#SBATCH --error=mae.err
+#SBATCH --time=1:00
+# #SBATCH --partition=zgroup
+#SBATCH --gres=gpu:A6000:4
+
+WORKDIR=$(pwd)
+output_path=/burg/zgroup/users/gzg2104/_coco_models/07_11_24/initial_try
 JOB_DIR=$(pwd)
-submitit_pretrain.py \
-    --job_dir ${JOB_DIR} \
-    --nodes 2 \
-    --ngpus 4 \
-    --use_volta32 \
+python $WORKDIR/submitit_pretrain.py \
+    --ngpus 3 \
+    --nodes 1 \
+    --timeout 720 \
+    --job_dir $JOB_DIR \
+    --partition zgroup \
+    --account zgroup \
+    --job_name dummy_mae \
+    --output mae.out \
+    --error mae.err \
     --dataset_name coco \
     --batch_size 128 \
     --blr 1e-3 \

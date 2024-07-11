@@ -12,7 +12,7 @@ import os
 import uuid
 from pathlib import Path
 
-import main_pretrain as trainer
+import slurm_main_pretrain as trainer
 import submitit
 
 
@@ -27,14 +27,21 @@ def parse_args():
     parser.add_argument("--partition", default="learnfair", type=str, help="Partition where to submit")
     parser.add_argument("--use_volta32", action='store_true', help="Request 32G V100 GPUs")
     parser.add_argument('--comment', default="", type=str, help="Comment to pass to scheduler")
+
+    parser.add_argument("--account")
+    parser.add_argument("--job_name")
+    parser.add_argument("--output")
+    parser.add_argument("--error")
+
     return parser.parse_args()
 
 
 def get_shared_folder() -> Path:
     user = os.getenv("USER")
-    if Path("/checkpoint/").is_dir():
-        p = Path(f"/checkpoint/{user}/experiments")
-        p.mkdir(exist_ok=True)
+    if Path("/burg/zgroup/users/gzg2104/checkpoint/").is_dir():
+        p = Path(f"/burg/zgroup/users/gzg2104/checkpoint/{user}/experiments")
+        print(p)
+        os.makedirs(str(p), exist_ok=True)
         return p
     raise RuntimeError("No shared folder available")
 
@@ -112,6 +119,8 @@ def main():
         # Below are cluster dependent parameters
         slurm_partition=partition,
         slurm_signal_delay_s=120,
+        slurm_account=args.account,
+        slurm_job_name=args.job_name,
         **kwargs
     )
 
