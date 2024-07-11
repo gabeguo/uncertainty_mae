@@ -8,8 +8,7 @@ import torch
 import numpy as np
 
 the_pre_transform = transforms.Compose([
-    transforms.ToTensor(),
-    v2.RGB()
+    transforms.ToTensor()
 ])
 
 # Thanks https://discuss.pytorch.org/t/torchvision-transfors-how-to-perform-identical-transform-on-both-image-and-target/10606/7
@@ -43,10 +42,14 @@ def the_post_transform(image, mask):
     mask = TF.to_tensor(mask)
     return image, mask
 
-def transform_function(img_dict, mask_ratio=0.75):
+def transform_function(img_dict):
     img_dict['token_mask'] = [None for _ in range(len(img_dict['image']))]
     for img_idx in range(len(img_dict['image'])):
         img_dict['image'][img_idx] = the_pre_transform(img_dict['image'][img_idx])
+
+        # deal with grayscale
+        if img_dict['image'][img_idx].shape[0] == 1:
+            img_dict['image'][img_idx] = img_dict['image'][img_idx].repeat(3, 1, 1)
 
         # pick a bbox
         the_bboxes = img_dict['objects'][img_idx]['bbox']
@@ -65,7 +68,7 @@ def transform_function(img_dict, mask_ratio=0.75):
         
         # set token mask
         fine_mask = fine_mask[0]
-        img_dict['token_mask'][img_idx] = create_token_mask(fine_mask, mask_ratio=mask_ratio)
+        img_dict['token_mask'][img_idx] = create_token_mask(fine_mask)
 
     return {'image':img_dict['image'], 'token_mask':img_dict['token_mask']}
 
@@ -88,35 +91,31 @@ def create_token_mask(fine_mask, dims=(14, 14), mask_ratio=0.75):
                     < (fine_i_high - fine_i_low) * (fine_j_high - fine_j_low):
                 mask_layout[i, j] = 0
 
-    if random.random() < 0.5:
-        mask_layout = torch.ones_like(mask_layout) - mask_layout # flip mask
-
-    if mask_ratio is not None:
-        # post-process to make it fit mask ratio
-        desired_num_visible = int((1 - mask_ratio) * dims[0] * dims[1])
-        curr_num_visible = int(torch.sum(mask_layout).item())
-        curr_num_invisible = dims[0] * dims[1] - curr_num_visible
-        # too many visible tokens, select some to hide
-        if curr_num_visible > desired_num_visible:
-            current_visible_tokens = torch.where(mask_layout == 1)
-            # print(current_visible_tokens)
-            assert len(current_visible_tokens) == 2
-            assert current_visible_tokens[0].shape == current_visible_tokens[1].shape
-            num_needed_to_mask = curr_num_visible - desired_num_visible
-            indices_to_mask = np.random.choice(a=curr_num_visible, size=num_needed_to_mask, replace=False)
-            rows_mask = current_visible_tokens[0][indices_to_mask]
-            cols_mask = current_visible_tokens[1][indices_to_mask]
-            mask_layout[rows_mask, cols_mask] = 0
-        # too few visible tokens, select some to reveal
-        elif curr_num_visible < desired_num_visible:
-            current_invisible_tokens = torch.where(mask_layout == 0)
-            assert len(current_invisible_tokens) == 2
-            assert current_invisible_tokens[0].shape == current_invisible_tokens[1].shape
-            num_needed_to_reveal = desired_num_visible - curr_num_visible
-            indices_to_reveal = np.random.choice(a=curr_num_invisible, size=num_needed_to_reveal, replace=False)
-            rows_reveal = current_invisible_tokens[0][indices_to_reveal]
-            cols_reveal = current_invisible_tokens[1][indices_to_reveal]
-            mask_layout[rows_reveal, cols_reveal] = 1
-        assert torch.sum(mask_layout) == desired_num_visible
+    # post-process to make it fit mask ratio
+    desired_num_visible = int((1 - mask_ratio) * dims[0] * dims[1])
+    curr_num_visible = int(torch.sum(mask_layout).item())
+    curr_num_invisible = dims[0] * dims[1] - curr_num_visible
+    # too many visible tokens, select some to hide
+    if curr_num_visible > desired_num_visible:
+        current_visible_tokens = torch.where(mask_layout == 1)
+        # print(current_visible_tokens)
+        assert len(current_visible_tokens) == 2
+        assert current_visible_tokens[0].shape == current_visible_tokens[1].shape
+        num_needed_to_mask = curr_num_visible - desired_num_visible
+        indices_to_mask = np.random.choice(a=curr_num_visible, size=num_needed_to_mask, replace=False)
+        rows_mask = current_visible_tokens[0][indices_to_mask]
+        cols_mask = current_visible_tokens[1][indices_to_mask]
+        mask_layout[rows_mask, cols_mask] = 0
+    # too few visible tokens, select some to reveal
+    elif curr_num_visible < desired_num_visible:
+        current_invisible_tokens = torch.where(mask_layout == 0)
+        assert len(current_invisible_tokens) == 2
+        assert current_invisible_tokens[0].shape == current_invisible_tokens[1].shape
+        num_needed_to_reveal = desired_num_visible - curr_num_visible
+        indices_to_reveal = np.random.choice(a=curr_num_invisible, size=num_needed_to_reveal, replace=False)
+        rows_reveal = current_invisible_tokens[0][indices_to_reveal]
+        cols_reveal = current_invisible_tokens[1][indices_to_reveal]
+        mask_layout[rows_reveal, cols_reveal] = 1
+    assert torch.sum(mask_layout) == desired_num_visible
 
     return mask_layout
