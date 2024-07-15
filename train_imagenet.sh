@@ -1,19 +1,19 @@
-output_path=/local/zemel/gzg2104/_imagenet_models/07_11_24/beta5_blr1e-4_invScale025
+output_path=/local/zemel/gzg2104/_imagenet_models/07_15_24/beta30_scale0_01
 python main_pretrain.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
     --batch_size 384 \
-    --blr 1e-4 \
+    --blr 1.5e-4 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
-    --epochs 800 \
+    --epochs 400 \
     --log_freq 25 \
     --vae \
-    --kld_beta 5 \
-    --invisible_lr_scale 0.025 \
+    --kld_beta 30 \
+    --invisible_lr_scale 0.01 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
