@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_imagenet_models/07_15_24/beta30_scale0_01
+output_path=/local/zemel/gzg2104/_imagenet_models/07_15_24/beta30_scale0_01_epochs400
 python main_pretrain.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
