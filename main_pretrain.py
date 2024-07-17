@@ -6,6 +6,7 @@ import random
 import os
 import time
 from pathlib import Path
+from functools import partial
 
 from datasets import load_dataset
 import torch
@@ -323,7 +324,7 @@ def main(rank, args, world_size):
         ds = load_dataset("detection-datasets/coco")
         dataset_train = ds['train']
         
-        dataset_train.set_transform(coco_transforms.transform_function)
+        dataset_train.set_transform(partial(coco_transforms.transform_function, mask_ratio=args.mask_ratio))
     else:
         print('imagenet!')
         dataset_train = datasets.ImageNet(args.data_path, split="train", 
