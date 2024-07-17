@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_coco_models/07_17_24/beta30
+output_path=/local/zemel/gzg2104/_coco_models/07_17_24/beta15
 python main_pretrain.py \
     --dataset_name coco \
     --batch_size 384 \
@@ -11,7 +11,7 @@ python main_pretrain.py \
     --epochs 400 \
     --log_freq 25 \
     --vae \
-    --kld_beta 30 \
+    --kld_beta 15 \
     --invisible_lr_scale 0.01 \
     --mask_ratio 0.75 \
     --partial_vae \
@@ -20,4 +20,5 @@ python main_pretrain.py \
     --weight_decay 0.05 \
     --mixed_precision \
     --wandb_project coco_head_to_head \
-    --disable_zero_conv
+    --disable_zero_conv \
+    --master_port 12356
