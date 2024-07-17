@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_coco_models/07_09_24/vanilla_mae
+output_path=/local/zemel/gzg2104/_coco_models/07_17_24/beta30
 python main_pretrain.py \
     --dataset_name coco \
     --batch_size 384 \
@@ -8,14 +8,16 @@ python main_pretrain.py \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
-    --epochs 800 \
-    --log_freq 40 \
-    --kld_beta 0 \
+    --epochs 400 \
+    --log_freq 25 \
+    --vae \
+    --kld_beta 30 \
+    --invisible_lr_scale 0.01 \
     --mask_ratio 0.75 \
+    --partial_vae \
     --dropout_ratio 0 \
     --eps 1e-6 \
-    --weight_decay 0.025 \
+    --weight_decay 0.05 \
     --mixed_precision \
-    --wandb_project coco_pretrain \
-    --disable_zero_conv \
-    --master_port "12356"
+    --wandb_project coco_head_to_head \
+    --disable_zero_conv
