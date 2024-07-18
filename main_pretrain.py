@@ -160,6 +160,8 @@ def get_args_parser():
                         help='are we end-to-end finetuning the loaded pretrained_weights?')
     parser.add_argument('--block_mask_prob', default=0, type=float,
                         help='What probability to use a contiguous mask instead of random mask?')
+    parser.add_argument('--object_mask', action='store_true',
+                        help='On Coco, do we use semantic masks?')
     parser.add_argument('--disable_zero_conv', action='store_true',
                         help='Disable zero conv to initialize VAE?')
 

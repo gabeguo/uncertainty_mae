@@ -49,7 +49,7 @@ def train_one_epoch(model: torch.nn.Module,
 
         with torch.cuda.amp.autocast(enabled=args.mixed_precision):
             if isinstance(model.module, UncertaintyMAE):
-                if args.dataset_name == 'coco':
+                if args.dataset_name == 'coco' and args.object_mask:
                     mask_layout = the_data['token_mask'].to(device=samples.device)
                     B = mask_layout.shape[0]
                     assert mask_layout.shape == (B, 14, 14), f"{mask_layout.shape}"
