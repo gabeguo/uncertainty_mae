@@ -48,6 +48,7 @@ def train_one_epoch(model: torch.nn.Module,
         samples = samples.to(device, non_blocking=True)
 
         with torch.cuda.amp.autocast(enabled=args.mixed_precision):
+            assert isinstance(model.module, UncertaintyMAE)
             if isinstance(model.module, UncertaintyMAE):
                 if args.dataset_name == 'coco' and args.object_mask:
                     mask_layout = the_data['token_mask'].to(device=samples.device)
@@ -74,9 +75,10 @@ def train_one_epoch(model: torch.nn.Module,
 
                 loss, pred, mask, reconstruction_loss, kld_loss = \
                     model(samples, mask_ratio=mask_ratio, return_component_losses=True, 
-                          force_mask=force_mask)
+                          force_mask=force_mask, add_default_mask=args.add_default_mask)
             else:
                 loss, _, _ = model(samples, mask_ratio=args.mask_ratio)
+                raise ValueError("we're not training that rn")
 
         loss_value = loss.item()
 

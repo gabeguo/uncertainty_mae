@@ -74,7 +74,8 @@ class UncertaintyMAE(nn.Module):
                 mask_layout[7:14, 0:14] = 0
         return mask_ratio
 
-    def forward(self, imgs, mask_ratio=0.75, force_mask=None, return_component_losses=False):
+    def forward(self, imgs, mask_ratio=0.75, force_mask=None, return_component_losses=False,
+                add_default_mask=False):
         """
         Returns:
         loss, pred, mask
@@ -137,7 +138,9 @@ class UncertaintyMAE(nn.Module):
         
         # TODO: if this gets buggy, try to regenerate the real image with these indices
         invisible_latent = self.invisible_mae.decoder_embed(invisible_latent) # embed for decoder
-        pred = self.visible_mae.forward_decoder(visible_latent, ids_restore, force_mask_token=invisible_latent)  # [N, L, p*p*3]
+        pred = self.visible_mae.forward_decoder(visible_latent, ids_restore, 
+                                                force_mask_token=invisible_latent,
+                                                add_default_mask=add_default_mask)  # [N, L, p*p*3]
         assert pred.shape == (N, L, 16 * 16 * 3), f"pred.shape is {pred.shape}"
         reconstruction_loss = self.visible_mae.forward_loss(imgs, pred, mask)
 

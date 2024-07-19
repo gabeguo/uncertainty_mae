@@ -162,6 +162,8 @@ def get_args_parser():
                         help='What probability to use a contiguous mask instead of random mask?')
     parser.add_argument('--object_mask', action='store_true',
                         help='On Coco, do we use semantic masks?')
+    parser.add_argument('--add_default_mask', action='store_true',
+                        help='Do we add default mask?')
     parser.add_argument('--disable_zero_conv', action='store_true',
                         help='Disable zero conv to initialize VAE?')
 
