@@ -2,17 +2,19 @@ import torch
 import torch.nn as nn
 from models_mae import MaskedAutoencoderViT
 import random
+import numpy as np
 
 class UncertaintyMAE(nn.Module):
     def __init__(self, visible_mae, invisible_mae, dropout_ratio=0, 
                  load_weights=None, same_encoder=False, end_to_end_finetune=False,
-                 block_mask_prob=0.5):
+                 block_mask_prob=0.5, var=1):
         super().__init__()
 
         self.same_encoder = same_encoder
         self.load_weights = load_weights
         self.end_to_end_finetune = end_to_end_finetune
         self.block_mask_prob = block_mask_prob
+        self.var = var
         print(f'Same encoder: {self.same_encoder}')
         print(f'End-to-end finetune: {self.end_to_end_finetune}')
         print(f'Block mask prob: {self.block_mask_prob}')
@@ -124,16 +126,26 @@ class UncertaintyMAE(nn.Module):
             assert invisible_latent.shape[0] == visible_latent.shape[0]
             assert invisible_latent.shape[2] == visible_latent.shape[2]
             assert torch.sum(reverse_mask) + torch.sum(mask) == N * 14 * 14, f"reverse mask: {torch.sum(reverse_mask)}, {torch.sum(mask)}"
-            kld_loss = -0.5 * \
-                torch.mean(1 + latent_log_var - latent_mean.pow(2) - torch.minimum(latent_log_var.exp(), torch.full_like(latent_log_var, 100)))
+            # kld_loss = -0.5 * \
+            #     torch.mean(1 + latent_log_var - latent_mean.pow(2) - torch.minimum(latent_log_var.exp(), torch.full_like(latent_log_var, 100)))
+            # Sanity checked this one with commented code above
+            kld_loss = 0.5 * \
+                torch.mean(
+                    np.log(self.var) - latent_log_var - 1 + \
+                    1 / self.var * (latent_mean.pow(2) + latent_log_var.exp())
+                )
             if random.random() < 0.01:
                 print('mean:', latent_mean.mean())
                 print('var:', latent_log_var.exp().mean())
         # test time
         else:
             invisible_num_tokens = 14 * 14 + 2 - visible_latent.shape[1]
-            invisible_latent = torch.randn(visible_latent.shape[0], invisible_num_tokens, visible_latent.shape[2],
-                                           device=visible_latent.device)
+            # invisible_latent = torch.randn(visible_latent.shape[0], invisible_num_tokens, visible_latent.shape[2],
+            #                                device=visible_latent.device)
+            invisible_latent = torch.normal(mean=0, std=self.var**0.5, 
+                            size=(visible_latent.shape[0], invisible_num_tokens, visible_latent.shape[2])
+            )
+            invisible_latent = invisible_latent.to(visible_latent.device)
             kld_loss = 0
         
         # TODO: if this gets buggy, try to regenerate the real image with these indices
