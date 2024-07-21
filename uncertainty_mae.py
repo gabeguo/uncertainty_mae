@@ -148,6 +148,12 @@ class UncertaintyMAE(nn.Module):
             invisible_latent = invisible_latent.to(visible_latent.device)
             kld_loss = 0
         
+        if print_stats:
+            print(f'pre-embedding invisible latent: mean = {invisible_latent.mean():.3f}; std = {invisible_latent.std():.3f}')
+            if self.training:
+                print(f'logvar: {latent_log_var.mean():.3f}')
+                print(f'mean: {latent_mean.mean():.3f}')
+
         # TODO: if this gets buggy, try to regenerate the real image with these indices
         invisible_latent = self.invisible_mae.decoder_embed(invisible_latent) # embed for decoder
         pred = self.visible_mae.forward_decoder(visible_latent, ids_restore, 

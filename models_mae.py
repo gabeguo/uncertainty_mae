@@ -242,7 +242,7 @@ class MaskedAutoencoderViT(nn.Module):
             if not self.disable_zero_conv:
                 log_var_x = self.logVar_zero_conv_weight * log_var_x + self.logVar_zero_conv_bias
             x = self.reparameterization(mean=mean_x, var=torch.exp(0.5 * log_var_x))
-            x = self.norm(x)
+            # x = self.norm(x)
             return x, mask, ids_restore, mean_x, log_var_x
         x = self.norm(x)
 
