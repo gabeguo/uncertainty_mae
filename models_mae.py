@@ -248,7 +248,8 @@ class MaskedAutoencoderViT(nn.Module):
 
         return x, mask, ids_restore
 
-    def forward_decoder(self, x, ids_restore, force_mask_token=None, add_default_mask=False):
+    def forward_decoder(self, x, ids_restore, force_mask_token=None, add_default_mask=False,
+                        print_stats=False):
         # embed tokens
         x = self.decoder_embed(x)
 
@@ -265,8 +266,9 @@ class MaskedAutoencoderViT(nn.Module):
             mask_tokens = force_mask_token[:, 1:, :] # no cls token from masked encoding
             if add_default_mask:
                 mask_tokens = mask_tokens + default_mask_tokens
-        # print(f"latent mean: {torch.mean(x):.3f}; std: {torch.std(x):.3f}")
-        # print(f"mask token mean: {torch.mean(mask_tokens):.3f}; std: {torch.std(mask_tokens):.3f}")
+        if print_stats:
+            print(f"latent mean: {torch.mean(x):.3f}; std: {torch.std(x):.3f}")
+            print(f"mask token mean: {torch.mean(mask_tokens):.3f}; std: {torch.std(mask_tokens):.3f}")
         x_ = torch.cat([x[:, 1:, :], mask_tokens], dim=1)  # no cls token
         x_ = torch.gather(x_, dim=1, index=ids_restore.unsqueeze(-1).repeat(1, 1, x.shape[2]))  # unshuffle
         x = torch.cat([x[:, :1, :], x_], dim=1)  # append cls token
@@ -311,7 +313,8 @@ class MaskedAutoencoderViT(nn.Module):
             loss += kld_loss
         return loss
 
-    def forward(self, imgs, mask_ratio=0.75, force_mask=None, show_variance=False):
+    def forward(self, imgs, mask_ratio=0.75, force_mask=None, show_variance=False,
+                print_stats=False):
         forward_retVal = self.forward_encoder(imgs, mask_ratio, force_mask=force_mask)
         if self.vae:
             latent, mask, ids_restore, latent_mean, latent_log_var = forward_retVal
@@ -325,7 +328,7 @@ class MaskedAutoencoderViT(nn.Module):
         # print('mask shape:', mask.shape)
         # print('ids_restore:', ids_restore)
         # print('ids_restore shape:', ids_restore.shape)
-        pred = self.forward_decoder(latent, ids_restore)  # [N, L, p*p*3]
+        pred = self.forward_decoder(latent, ids_restore, print_stats=print_stats)  # [N, L, p*p*3]
         if self.vae:
             loss = self.forward_loss(imgs, pred, mask, latent_mean=latent_mean, latent_log_var=latent_log_var)
         else:
