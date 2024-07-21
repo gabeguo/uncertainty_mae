@@ -19,7 +19,7 @@ python main_pretrain.py \
     --eps 1e-6 \
     --weight_decay 0.05 \
     --mixed_precision \
-    --wandb_project coco_head_to_head \
+    --wandb_project RETRY_coco_head_to_head \
     --disable_zero_conv \
     --master_port 12355 \
     --object_mask \
