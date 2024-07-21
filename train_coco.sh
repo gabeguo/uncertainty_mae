@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_coco_models/07_20_24/beta1_addDefaultMask_prior0_01
+output_path=/local/zemel/gzg2104/_coco_models/07_21_24/RETRY_beta1_addDefaultMask_prior0_01
 python main_pretrain.py \
     --dataset_name coco \
     --batch_size 384 \
@@ -21,7 +21,7 @@ python main_pretrain.py \
     --mixed_precision \
     --wandb_project coco_head_to_head \
     --disable_zero_conv \
-    --master_port 12356 \
+    --master_port 12355 \
     --object_mask \
     --add_default_mask \
     --var 0.01
