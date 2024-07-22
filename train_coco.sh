@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_coco_models/07_21_24/RETRY_beta5_addDefaultMask_prior0_01
+output_path=/local/zemel/gzg2104/_coco_models/07_22_24/RETRY_beta30_addDefaultMask_prior0_01
 python main_pretrain.py \
     --dataset_name coco \
     --batch_size 384 \
@@ -11,7 +11,7 @@ python main_pretrain.py \
     --epochs 400 \
     --log_freq 25 \
     --vae \
-    --kld_beta 5 \
+    --kld_beta 30 \
     --invisible_lr_scale 0.01 \
     --mask_ratio 0.75 \
     --partial_vae \
@@ -21,7 +21,7 @@ python main_pretrain.py \
     --mixed_precision \
     --wandb_project RETRY_coco_head_to_head \
     --disable_zero_conv \
-    --master_port 12356 \
+    --master_port 12355 \
     --object_mask \
     --add_default_mask \
     --var 0.01
