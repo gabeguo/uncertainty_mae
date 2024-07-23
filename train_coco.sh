@@ -3,7 +3,7 @@ python main_pretrain.py \
     --dataset_name coco \
     --batch_size 384 \
     --blr 1.5e-4 \
-    --accum_iter 2 \
+    --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
