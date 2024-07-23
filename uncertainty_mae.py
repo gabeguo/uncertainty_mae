@@ -155,6 +155,7 @@ class UncertaintyMAE(nn.Module):
                 print(f'mean: {latent_mean.mean():.3f}')
 
         # TODO: if this gets buggy, try to regenerate the real image with these indices
+        invisible_latent = self.invisible_mae.norm(invisible_latent)
         invisible_latent = self.invisible_mae.decoder_embed(invisible_latent) # embed for decoder
         pred = self.visible_mae.forward_decoder(visible_latent, ids_restore, 
                                                 force_mask_token=invisible_latent,
