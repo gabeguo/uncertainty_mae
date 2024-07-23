@@ -1,9 +1,9 @@
 output_path=/local/zemel/gzg2104/_coco_models/07_22_24/baseline
 python main_pretrain.py \
     --dataset_name coco \
-    --batch_size 768 \
+    --batch_size 384 \
     --blr 1.5e-4 \
-    --accum_iter 1 \
+    --accum_iter 2 \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
