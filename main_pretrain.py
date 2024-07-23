@@ -78,7 +78,7 @@ class Trainer:
         self.optimizer = optimizer
         self.loss_scaler = loss_scaler
         self.log_writer = log_writer
-        self.model = DDP(model, device_ids=[gpu_id], find_unused_parameters=True)
+        self.model = DDP(model, device_ids=[gpu_id], find_unused_parameters=isinstance(model, UncertaintyMAE))
         self.model_without_ddp = model_without_ddp
         self.args = args
 
