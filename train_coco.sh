@@ -1,7 +1,7 @@
 output_path=/local/zemel/gzg2104/_coco_models/07_22_24/baseline
 python main_pretrain.py \
     --dataset_name coco \
-    --batch_size 384 \
+    --batch_size 768 \
     --blr 1.5e-4 \
     --accum_iter 1 \
     --output_dir $output_path \
