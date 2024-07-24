@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_coco_models/07_23_24/beta30_addDefaultMask_eps1e-8
+output_path=/local/zemel/gzg2104/_coco_models/07_24_24/beta30_addDefault_eps1e-8_scale0_025
 python main_pretrain.py \
     --dataset_name coco \
     --batch_size 384 \
@@ -12,7 +12,7 @@ python main_pretrain.py \
     --log_freq 25 \
     --vae \
     --kld_beta 30 \
-    --invisible_lr_scale 0.01 \
+    --invisible_lr_scale 0.025 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
