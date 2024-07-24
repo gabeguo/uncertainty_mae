@@ -1,6 +1,6 @@
 python main_linprobe.py \
     --model vit_base_patch16 \
-    --finetune /local/zemel/gzg2104/_coco_models/07_23_24/beta30_addDefaultMask_eps1e-8/checkpoint-350.pth \
+    --finetune /local/zemel/gzg2104/_coco_models/07_23_24/beta30_addDefaultMask_eps1e-8/checkpoint-399.pth \
     --dataset_name cifar \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
     --nb_classes 100 \
