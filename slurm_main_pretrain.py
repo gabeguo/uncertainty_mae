@@ -25,6 +25,8 @@ from util.misc import NativeScalerWithGradNormCount as NativeScaler
 
 import torch.multiprocessing as mp
 
+from functools import partial
+
 import models_mae
 from multi_head_mae import MultiHeadMAE
 from uncertainty_mae import UncertaintyMAE
@@ -80,6 +82,12 @@ def get_args_parser():
                         help='What probability to use a contiguous mask instead of random mask?')
     parser.add_argument('--disable_zero_conv', action='store_true',
                         help='Disable zero conv to initialize VAE?')
+    parser.add_argument('--object_mask', action='store_true',
+                        help='On Coco, do we use semantic masks?')
+    parser.add_argument('--add_default_mask', action='store_true',
+                        help='Do we add default mask?')
+    parser.add_argument('--var', default=1, type=float,
+                        help='The var to use for KLD loss (assume mean 0)')
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
@@ -236,7 +244,7 @@ def main(args):
         ds = load_dataset("detection-datasets/coco")
         dataset_train = ds['train']
         
-        dataset_train.set_transform(coco_transforms.transform_function)
+        dataset_train.set_transform(partial(coco_transforms.transform_function, mask_ratio=args.mask_ratio))
     else:
         dataset_train = datasets.ImageNet(args.data_path, split="train", 
             transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
@@ -277,7 +285,8 @@ def main(args):
                                dropout_ratio=args.dropout_ratio,
                                load_weights=args.pretrained_weights, same_encoder=args.same_encoder,
                                end_to_end_finetune=args.end_to_end_finetune,
-                               block_mask_prob=args.block_mask_prob)
+                               block_mask_prob=args.block_mask_prob,
+                               var=args.var)
         print('partial VAE')
     elif (args.lower is not None) and (args.median is not None) and (args.upper is not None):
         assert 0 < args.lower < args.median < args.upper < 1
