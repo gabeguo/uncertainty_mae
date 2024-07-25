@@ -8,11 +8,11 @@
 #SBATCH --gres=gpu:A6000:4
 
 WORKDIR=$(pwd)
-output_path=/burg/zgroup/users/gzg2104/_coco_models/07_11_24/initial_try
+output_path=/burg/zgroup/users/gzg2104/_coco_models/07_25_24/replicateOn_multiNode
 JOB_DIR=$(pwd)
 python $WORKDIR/submitit_pretrain.py \
-    --ngpus 8 \
-    --nodes 3 \
+    --ngpus 4 \
+    --nodes 1 \
     --timeout 720 \
     --job_dir $JOB_DIR \
     --partition short \
@@ -21,24 +21,27 @@ python $WORKDIR/submitit_pretrain.py \
     --output mae.out \
     --error mae.err \
     --dataset_name coco \
-    --batch_size 128 \
+    --batch_size 192 \
     --blr 1.5e-4 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
-    --epochs 800 \
+    --epochs 400 \
     --log_freq 40 \
     --vae \
-    --kld_beta 10 \
+    --kld_beta 30 \
     --invisible_lr_scale 0.025 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
-    --eps 1e-6 \
+    --eps 1e-8 \
     --weight_decay 0.05 \
     --mixed_precision \
-    --wandb_project coco_pretrain \
-    --wandb_name initialTrySlurm \
-    --disable_zero_conv
+    --wandb_project RETRY_coco_head_to_head \
+    --wandb_name replicate_onMultiNode \
+    --disable_zero_conv \
+    --object_mask \
+    --add_default_mask \
+    --var 1
