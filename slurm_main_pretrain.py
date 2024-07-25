@@ -25,6 +25,8 @@ from util.misc import NativeScalerWithGradNormCount as NativeScaler
 
 import torch.multiprocessing as mp
 
+from functools import partial
+
 import models_mae
 from multi_head_mae import MultiHeadMAE
 from uncertainty_mae import UncertaintyMAE
@@ -242,7 +244,7 @@ def main(args):
         ds = load_dataset("detection-datasets/coco")
         dataset_train = ds['train']
         
-        dataset_train.set_transform(coco_transforms.transform_function)
+        dataset_train.set_transform(partial(coco_transforms.transform_function, mask_ratio=args.mask_ratio))
     else:
         dataset_train = datasets.ImageNet(args.data_path, split="train", 
             transform=transform_train, is_valid_file=lambda x: not x.split('/')[-1].startswith('.'))
