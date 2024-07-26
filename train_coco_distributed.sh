@@ -1,18 +1,11 @@
 #!/bin/bash
-#SBATCH --account=zgroup
-#SBATCH --job-name=dummy_mae
-#SBATCH --output=mae.out
-#SBATCH --error=mae.err
-#SBATCH --time=1:00
-# #SBATCH --partition=zgroup
-#SBATCH --gres=gpu:A6000:4
 
 WORKDIR=$(pwd)
 output_path=/burg/zgroup/users/gzg2104/_coco_models/07_25_24/replicateOn_multiNode
 JOB_DIR=$(pwd)
 python $WORKDIR/submitit_pretrain.py \
     --ngpus 4 \
-    --nodes 1 \
+    --nodes 2 \
     --timeout 720 \
     --job_dir $JOB_DIR \
     --partition short \
@@ -21,7 +14,7 @@ python $WORKDIR/submitit_pretrain.py \
     --output mae.out \
     --error mae.err \
     --dataset_name coco \
-    --batch_size 192 \
+    --batch_size 128 \
     --blr 1.5e-4 \
     --accum_iter 1 \
     --output_dir $output_path \

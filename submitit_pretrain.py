@@ -110,14 +110,12 @@ def main():
         kwargs['slurm_comment'] = args.comment
 
     executor.update_parameters(
-        mem_gb=40 * num_gpus_per_node,
         gpus_per_node=num_gpus_per_node,
-        tasks_per_node=num_gpus_per_node,  # one task per GPU
-        cpus_per_task=10,
+        tasks_per_node=1,  # one task per GPU
         nodes=nodes,
         timeout_min=timeout_min,  # max is 60 * 72
         # Below are cluster dependent parameters
-        slurm_partition=partition,
+        slurm_partition=None,
         slurm_signal_delay_s=120,
         slurm_account=args.account,
         slurm_job_name=args.job_name,
