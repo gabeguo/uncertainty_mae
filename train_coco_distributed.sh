@@ -4,7 +4,7 @@ WORKDIR=$(pwd)
 output_path=/burg/zgroup/users/gzg2104/_coco_models/07_25_24/replicateOn_multiNode
 JOB_DIR=$(pwd)
 python $WORKDIR/submitit_pretrain.py \
-    --ngpus 4 \
+    --ngpus 8 \
     --nodes 2 \
     --timeout 720 \
     --job_dir $JOB_DIR \
@@ -24,8 +24,8 @@ python $WORKDIR/submitit_pretrain.py \
     --epochs 400 \
     --log_freq 40 \
     --vae \
-    --kld_beta 30 \
-    --invisible_lr_scale 0.025 \
+    --kld_beta 25 \
+    --invisible_lr_scale 0.01 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
@@ -33,7 +33,7 @@ python $WORKDIR/submitit_pretrain.py \
     --weight_decay 0.05 \
     --mixed_precision \
     --wandb_project RETRY_coco_head_to_head \
-    --wandb_name replicate_onMultiNode \
+    --wandb_name multiNode \
     --disable_zero_conv \
     --object_mask \
     --add_default_mask \
