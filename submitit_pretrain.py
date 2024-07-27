@@ -111,7 +111,7 @@ def main():
 
     executor.update_parameters(
         gpus_per_node=num_gpus_per_node,
-        tasks_per_node=1,  # one task per GPU
+        tasks_per_node=num_gpus_per_node,  # one task per GPU
         nodes=nodes,
         timeout_min=timeout_min,  # max is 60 * 72
         # Below are cluster dependent parameters
