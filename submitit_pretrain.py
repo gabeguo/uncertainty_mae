@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument('--comment', default="", type=str, help="Comment to pass to scheduler")
 
     parser.add_argument('--exclude', default='m[005,012]', type=str, help='nodes we dont want')
+    parser.add_argument('--nodelist', default='m[004]', type=str, help='nodes to use')
 
     parser.add_argument("--account")
     parser.add_argument("--job_name")
@@ -115,7 +116,7 @@ def main():
         mem_gb=48*num_gpus_per_node,
         gpus_per_node=num_gpus_per_node,
         tasks_per_node=num_gpus_per_node,  # one task per GPU
-        cpus_per_task=16,
+        cpus_per_task=10,
         nodes=nodes,
         timeout_min=timeout_min,  # max is 60 * 72
         # Below are cluster dependent parameters
@@ -124,6 +125,7 @@ def main():
         slurm_account=args.account,
         slurm_job_name=args.job_name,
         slurm_exclude=args.exclude,
+        slurm_nodelist=args.nodelist,
         **kwargs
     )
 
