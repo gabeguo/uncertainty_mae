@@ -5,7 +5,7 @@ output_path=/burg/zgroup/users/gzg2104/_coco_models/07_25_24/replicateOn_multiNo
 JOB_DIR=$(pwd)
 python $WORKDIR/submitit_pretrain.py \
     --ngpus 8 \
-    --nodes 2 \
+    --nodes 1 \
     --timeout 720 \
     --job_dir $JOB_DIR \
     --partition short \
@@ -37,4 +37,5 @@ python $WORKDIR/submitit_pretrain.py \
     --disable_zero_conv \
     --object_mask \
     --add_default_mask \
-    --var 1
+    --var 1 \
+    --exclude 'm[005,012]'

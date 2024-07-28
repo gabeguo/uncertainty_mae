@@ -28,6 +28,8 @@ def parse_args():
     parser.add_argument("--use_volta32", action='store_true', help="Request 32G V100 GPUs")
     parser.add_argument('--comment', default="", type=str, help="Comment to pass to scheduler")
 
+    parser.add_argument('--exclude', default='m[005,012]', type=str, help='nodes we dont want')
+
     parser.add_argument("--account")
     parser.add_argument("--job_name")
     parser.add_argument("--output")
@@ -121,7 +123,7 @@ def main():
         slurm_signal_delay_s=120,
         slurm_account=args.account,
         slurm_job_name=args.job_name,
-        slurm_exclude='m[005,012]',
+        slurm_exclude=args.exclude,
         **kwargs
     )
 
