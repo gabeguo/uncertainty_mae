@@ -110,8 +110,10 @@ def main():
         kwargs['slurm_comment'] = args.comment
 
     executor.update_parameters(
+        mem_gb=48*num_gpus_per_node,
         gpus_per_node=num_gpus_per_node,
         tasks_per_node=num_gpus_per_node,  # one task per GPU
+        cpus_per_task=1,
         nodes=nodes,
         timeout_min=timeout_min,  # max is 60 * 72
         # Below are cluster dependent parameters
