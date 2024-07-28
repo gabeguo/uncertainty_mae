@@ -121,6 +121,7 @@ def main():
         slurm_signal_delay_s=120,
         slurm_account=args.account,
         slurm_job_name=args.job_name,
+        slurm_exclude='m[005,012]',
         **kwargs
     )
 
