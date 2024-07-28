@@ -28,8 +28,8 @@ def parse_args():
     parser.add_argument("--use_volta32", action='store_true', help="Request 32G V100 GPUs")
     parser.add_argument('--comment', default="", type=str, help="Comment to pass to scheduler")
 
-    parser.add_argument('--exclude', default='m[005,012]', type=str, help='nodes we dont want')
-    parser.add_argument('--nodelist', default='m[004]', type=str, help='nodes to use')
+    parser.add_argument('--exclude', default=None, type=str, help='nodes we dont want')
+    parser.add_argument('--nodelist', default=None, type=str, help='nodes to use')
 
     parser.add_argument("--account")
     parser.add_argument("--job_name")
