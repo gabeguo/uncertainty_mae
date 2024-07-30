@@ -40,4 +40,4 @@ python $WORKDIR/submitit_pretrain.py \
     --add_default_mask \
     --var 1 \
     --exclude 'm[012]' \
-    --nodelist 'm004
+    --nodelist 'm004'
