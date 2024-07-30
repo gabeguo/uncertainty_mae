@@ -5,7 +5,7 @@ output_path=/burg/zgroup/users/gzg2104/_imagenet_models/07_28_24/initialTry
 JOB_DIR=$(pwd)
 python $WORKDIR/submitit_pretrain.py \
     --ngpus 8 \
-    --nodes 2 \
+    --nodes 1 \
     --timeout 720 \
     --job_dir $JOB_DIR \
     --partition short \
@@ -22,8 +22,8 @@ python $WORKDIR/submitit_pretrain.py \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
-    --epochs 400 \
-    --log_freq 40 \
+    --epochs 800 \
+    --log_freq 20 \
     --vae \
     --kld_beta 25 \
     --invisible_lr_scale 0.01 \
@@ -40,4 +40,4 @@ python $WORKDIR/submitit_pretrain.py \
     --add_default_mask \
     --var 1 \
     --exclude 'm[012]' \
-    --nodelist 'm[004,006]'
+    --nodelist 'm004
