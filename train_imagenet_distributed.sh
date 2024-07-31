@@ -4,8 +4,9 @@ WORKDIR=$(pwd)
 output_path=/burg/zgroup/users/gzg2104/_imagenet_models/07_28_24/initialTry
 JOB_DIR=$(pwd)
 python $WORKDIR/submitit_pretrain.py \
-    --ngpus 8 \
+    --ngpus 4 \
     --nodes 1 \
+    --accum_iter 8 \
     --timeout 720 \
     --job_dir $JOB_DIR \
     --partition short \
@@ -34,10 +35,9 @@ python $WORKDIR/submitit_pretrain.py \
     --weight_decay 0.05 \
     --mixed_precision \
     --wandb_project imagenet_scaledUp \
-    --wandb_name initialMultiNodeTry \
+    --wandb_name node1_gpu8 \
     --disable_zero_conv \
     --object_mask \
     --add_default_mask \
     --var 1 \
-    --exclude 'm[012]' \
-    --nodelist 'm004'
+    --exclude 'm[012]'
