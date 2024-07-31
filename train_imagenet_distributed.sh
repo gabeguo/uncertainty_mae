@@ -35,7 +35,7 @@ python $WORKDIR/submitit_pretrain.py \
     --weight_decay 0.05 \
     --mixed_precision \
     --wandb_project imagenet_scaledUp \
-    --wandb_name node1_gpu8 \
+    --wandb_name initialTryManitou \
     --disable_zero_conv \
     --object_mask \
     --add_default_mask \
