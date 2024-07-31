@@ -1,19 +1,21 @@
 #!/bin/bash
 
 WORKDIR=$(pwd)
-output_path=/burg/zgroup/users/gzg2104/_coco_models/07_25_24/replicateOn_multiNode
+output_path=/burg/zgroup/users/gzg2104/_imagenet_models/07_28_24/initialTry
 JOB_DIR=$(pwd)
 python $WORKDIR/submitit_pretrain.py \
-    --ngpus 8 \
+    --ngpus 4 \
     --nodes 1 \
+    --accum_iter 8 \
     --timeout 720 \
     --job_dir $JOB_DIR \
     --partition short \
     --account zgroup \
-    --job_name mae_retry \
+    --job_name imagenet_try \
     --output mae.out \
     --error mae.err \
-    --dataset_name coco \
+    --dataset_name imagenet \
+    --data_path /burg/zgroup/users/gzg2104/data/imagenet/train \
     --batch_size 128 \
     --blr 1.5e-4 \
     --accum_iter 1 \
@@ -21,8 +23,8 @@ python $WORKDIR/submitit_pretrain.py \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
-    --epochs 400 \
-    --log_freq 40 \
+    --epochs 800 \
+    --log_freq 20 \
     --vae \
     --kld_beta 25 \
     --invisible_lr_scale 0.01 \
@@ -32,10 +34,10 @@ python $WORKDIR/submitit_pretrain.py \
     --eps 1e-8 \
     --weight_decay 0.05 \
     --mixed_precision \
-    --wandb_project RETRY_coco_head_to_head \
-    --wandb_name multiNode \
+    --wandb_project imagenet_scaledUp \
+    --wandb_name initialTryManitou \
     --disable_zero_conv \
     --object_mask \
     --add_default_mask \
     --var 1 \
-    --exclude 'm[005,012]'
+    --exclude 'm[012]'

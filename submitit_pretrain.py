@@ -28,6 +28,9 @@ def parse_args():
     parser.add_argument("--use_volta32", action='store_true', help="Request 32G V100 GPUs")
     parser.add_argument('--comment', default="", type=str, help="Comment to pass to scheduler")
 
+    parser.add_argument('--exclude', default=None, type=str, help='nodes we dont want')
+    parser.add_argument('--nodelist', default=None, type=str, help='nodes to use')
+
     parser.add_argument("--account")
     parser.add_argument("--job_name")
     parser.add_argument("--output")
@@ -110,17 +113,19 @@ def main():
         kwargs['slurm_comment'] = args.comment
 
     executor.update_parameters(
-        mem_gb=40 * num_gpus_per_node,
+        mem_gb=48*num_gpus_per_node,
         gpus_per_node=num_gpus_per_node,
         tasks_per_node=num_gpus_per_node,  # one task per GPU
         cpus_per_task=10,
         nodes=nodes,
         timeout_min=timeout_min,  # max is 60 * 72
         # Below are cluster dependent parameters
-        slurm_partition=partition,
+        slurm_partition=None,
         slurm_signal_delay_s=120,
         slurm_account=args.account,
         slurm_job_name=args.job_name,
+        slurm_exclude=args.exclude,
+        slurm_nodelist=args.nodelist,
         **kwargs
     )
 
