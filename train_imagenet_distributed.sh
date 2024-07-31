@@ -18,7 +18,6 @@ python $WORKDIR/submitit_pretrain.py \
     --data_path /burg/zgroup/users/gzg2104/data/imagenet/train \
     --batch_size 128 \
     --blr 1.5e-4 \
-    --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
