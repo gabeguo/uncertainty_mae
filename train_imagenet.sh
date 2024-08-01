@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_imagenet_models/08_01_24/beta25_eps1e-6
+output_path=/local/zemel/gzg2104/_imagenet_models/08_01_24/beta20_eps1e-6
 python main_pretrain.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
@@ -13,7 +13,7 @@ python main_pretrain.py \
     --log_freq 20 \
     --num_workers 16 \
     --vae \
-    --kld_beta 25 \
+    --kld_beta 20 \
     --invisible_lr_scale 1e-2 \
     --mask_ratio 0.75 \
     --partial_vae \
