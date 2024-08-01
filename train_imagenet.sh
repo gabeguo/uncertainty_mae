@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_imagenet_models/07_31_24/scale_1e-3
+output_path=/local/zemel/gzg2104/_imagenet_models/08_01_24/beta25_eps1e-6
 python main_pretrain.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
@@ -11,14 +11,14 @@ python main_pretrain.py \
     --warmup_epochs 40 \
     --epochs 800 \
     --log_freq 20 \
-    --num_workers 8 \
+    --num_workers 16 \
     --vae \
-    --kld_beta 30 \
-    --invisible_lr_scale 1e-3 \
+    --kld_beta 25 \
+    --invisible_lr_scale 1e-2 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
-    --eps 1e-8 \
+    --eps 1e-6 \
     --weight_decay 0.05 \
     --mixed_precision \
     --wandb_project imagenet_hippo \
