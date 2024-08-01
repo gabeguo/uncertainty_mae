@@ -1,10 +1,10 @@
-output_path=/local/zemel/gzg2104/_imagenet_models/07_30_24/tryAgain
+output_path=/local/zemel/gzg2104/_imagenet_models/07_31_24/scale_1e-3
 python main_pretrain.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
     --batch_size 256 \
     --blr 1.5e-4 \
-    --accum_iter 8 \
+    --accum_iter 4 \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
@@ -14,7 +14,7 @@ python main_pretrain.py \
     --num_workers 8 \
     --vae \
     --kld_beta 30 \
-    --invisible_lr_scale 0.01 \
+    --invisible_lr_scale 1e-3 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
