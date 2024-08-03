@@ -158,9 +158,8 @@ def run_one_image(args, img, model, img_idx, sample_idx=None,
     # infilled portion only, resized to square
     im_infill_square = find_infill_portion(y, mask)
 
-    # make the plt figure larger
-    plt.rcParams['figure.figsize'] = [24, 24]
-
+    plt.figure(figsize=(24, 5))
+    plt.rcParams.update({'font.size': 22})
     plt.subplot(1, 6, 1)
     show_image(x[0], "original", mean=mean, std=std)
     plt.subplot(1, 6, 2)
@@ -176,7 +175,9 @@ def run_one_image(args, img, model, img_idx, sample_idx=None,
 
     save_path = os.path.join(args.save_dir, 
             f"{img_idx}_{'v' if sample_idx is None else sample_idx}.png")
+    plt.tight_layout()
     plt.savefig(save_path)
+    plt.clf()
 
     return
 
@@ -245,7 +246,8 @@ def create_args():
                         default='/home/gzg2104/uncertainty_mae/mae_visualize_vit_base.pth')
     parser.add_argument('--num_iterations', type=int, default=10)
     parser.add_argument('--num_samples', type=int, default=3)
-    parser.add_argument('--save_dir', type=str, default='/local/zemel/gzg2104/outputs')
+    parser.add_argument('--save_dir', type=str, default='/local/zemel/gzg2104/outputs/08_03_24')
+    parser.add_argument('--random_mask', action='store_true')
 
     args = parser.parse_args()
 
@@ -267,7 +269,6 @@ def main(args):
     uncertainty_model_mae = uncertainty_model_mae.cuda()
     uncertainty_model_mae.eval()
 
-    random_mask=False
     add_default_mask=True
         
     print(model_mae)
@@ -281,7 +282,7 @@ def main(args):
 
         torch.manual_seed(idx)
         #print(mask_layout.shape)
-        if random_mask:
+        if args.random_mask:
             mask_layout = torch.ones(14, 14).to(device=img.device)
             randomize_mask_layout(mask_layout, mask_ratio=0.75)
             mask_layout = mask_layout.reshape(1, 14, 14)
