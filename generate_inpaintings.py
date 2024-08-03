@@ -194,6 +194,20 @@ def run_one_image(args, img, model, img_idx, sample_idx=None,
 
     return
 
+def create_checker():
+    img = torch.zeros(1, 3, 224, 224)
+    block_size = 16
+    for r in range(14):
+        for c in range(14):
+            if r % 2 == c % 2:
+                val = 1.5
+            else:
+                val = -1.5
+            img[:,:,
+                r*block_size:(r+1)*block_size, 
+                c*block_size:(c+1)*block_size] = val
+    return img
+
 def load_decoder_state_dict(model, chkpt_dir):
     state_dict = torch.load(chkpt_dir)['model']
     # Filter the state_dict to include only the keys for the desired parameters
@@ -294,6 +308,9 @@ def main(args):
         plt.rcParams['figure.figsize'] = [5, 5]
         img = img_dict['image']
 
+        if idx == 0:
+            img = create_checker()
+
         assert img.shape == (1, 3, 224, 224)
         img = img.cuda()
         img = img.squeeze()
@@ -303,6 +320,10 @@ def main(args):
         if args.random_mask:
             mask_layout = torch.ones(14, 14).to(device=img.device)
             randomize_mask_layout(mask_layout, mask_ratio=0.75)
+            mask_layout = mask_layout.reshape(1, 14, 14)
+        elif idx == 0:
+            mask_layout = torch.ones(14, 14).to(device=img.device)
+            mask_layout[4:8, 4:8] = 0
             mask_layout = mask_layout.reshape(1, 14, 14)
         else:
             mask_layout = img_dict['token_mask'].to(device=img.device)
