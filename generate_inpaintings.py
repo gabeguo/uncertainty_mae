@@ -33,7 +33,8 @@ def show_image(image, title='', mean=imagenet_mean, std=imagenet_std):
     # image is [H, W, 3]
     assert image.shape[2] == 3
     plt.imshow(torch.clip((image * std + mean), 0, 255).int())
-    plt.title(title, fontsize=16)
+    if len(title) > 0:
+        plt.title(title, fontsize=16)
     plt.axis('off')
     return
 
@@ -179,6 +180,18 @@ def run_one_image(args, img, model, img_idx, sample_idx=None,
     plt.savefig(save_path)
     plt.clf()
 
+    plt.figure(figsize=(6, 6))
+    show_image(im_infill[0], "", mean=mean, std=std)
+    padded_inpaint_save_path = os.path.join(get_inpaint_dir(args), 
+            f"{img_idx}_{'v' if sample_idx is None else sample_idx}_padded.png")
+    plt.tight_layout(pad=0)
+    plt.savefig(padded_inpaint_save_path)
+    show_image(im_infill_square, "", mean=mean, std=std)
+    square_save_path = os.path.join(get_inpaint_dir(args), 
+            f"{img_idx}_{'v' if sample_idx is None else sample_idx}_square.png")
+    plt.tight_layout(pad=0)
+    plt.savefig(square_save_path)
+
     return
 
 def load_decoder_state_dict(model, chkpt_dir):
@@ -253,8 +266,13 @@ def create_args():
 
     return args
 
+def get_inpaint_dir(args):
+    return os.path.join(args.save_dir, 'inpaints')
+
 def main(args):
     os.makedirs(args.save_dir, exist_ok=True)
+    inpaint_dir = get_inpaint_dir(args)
+    os.makedirs(inpaint_dir, exist_ok=True)
 
     test_loader = create_test_loader()
 
