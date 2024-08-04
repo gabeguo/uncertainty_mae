@@ -21,7 +21,7 @@ python $WORKDIR/submitit_pretrain.py \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
-    --epochs 400 \
+    --epochs 150 \
     --log_freq 40 \
     --vae \
     --kld_beta 25 \
