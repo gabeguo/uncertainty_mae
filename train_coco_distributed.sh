@@ -1,10 +1,10 @@
 #!/bin/bash
 
 WORKDIR=$(pwd)
-output_path=/burg/zgroup/users/gzg2104/_coco_models/08_04_24/64x4
+output_path=/burg/zgroup/users/gzg2104/_coco_models/08_04_24/128x2
 JOB_DIR=$(pwd)
 python $WORKDIR/submitit_pretrain.py \
-    --ngpus 4 \
+    --ngpus 2 \
     --nodes 1 \
     --timeout 720 \
     --job_dir $JOB_DIR \
@@ -14,7 +14,7 @@ python $WORKDIR/submitit_pretrain.py \
     --output mae.out \
     --error mae.err \
     --dataset_name coco \
-    --batch_size 64 \
+    --batch_size 128 \
     --blr 1.5e-4 \
     --accum_iter 1 \
     --output_dir $output_path \
