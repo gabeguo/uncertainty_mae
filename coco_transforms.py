@@ -53,8 +53,24 @@ def transform_function(img_dict, mask_ratio=None):
 
         # pick a bbox
         the_bboxes = img_dict['objects'][img_idx]['bbox']
-        curr_bbox = random.choice(the_bboxes)
-        x_min, y_min, x_max, y_max = [int(coord) for coord in curr_bbox]
+        if mask_ratio is None:
+            height = img_dict['image'][img_idx].shape[1]
+            width = img_dict['image'][img_idx].shape[2]
+            total_area = height * width
+            acceptable_bboxes = list()
+            for curr_bbox in the_bboxes:
+                x_min, y_min, x_max, y_max = [int(coord) for coord in curr_bbox]
+                bbox_area = (x_max - x_min) * (y_max - y_min)
+                if 0.2 * total_area < bbox_area < 0.8 * total_area:
+                    acceptable_bboxes.append(curr_bbox)
+            if len(acceptable_bboxes) == 0:
+                x_min = int(0.15 * width)
+                x_max = int(0.85 * width)
+                y_min = int(0.15 * height)
+                y_max = int(0.85 * height)
+            else:
+                curr_bbox = random.choice(acceptable_bboxes)
+                x_min, y_min, x_max, y_max = [int(coord) for coord in curr_bbox]
 
         # mask in true coordinate space
         fine_mask = torch.ones_like(img_dict['image'][img_idx])
@@ -62,7 +78,6 @@ def transform_function(img_dict, mask_ratio=None):
         assert fine_mask.shape[0] == 3, f"{fine_mask.shape}"
         fine_mask[:, y_min:y_max, x_min:x_max] = 0
         # do transform only after applying mask
-
         # transform image and fine mask together
         img_dict['image'][img_idx], fine_mask = the_post_transform(image=img_dict['image'][img_idx], mask=fine_mask)
         
