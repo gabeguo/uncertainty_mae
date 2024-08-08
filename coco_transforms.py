@@ -61,7 +61,7 @@ def transform_function(img_dict, mask_ratio=None):
             for curr_bbox in the_bboxes:
                 x_min, y_min, x_max, y_max = [int(coord) for coord in curr_bbox]
                 bbox_area = (x_max - x_min) * (y_max - y_min)
-                if 0.2 * total_area < bbox_area < 0.8 * total_area:
+                if 0.3 * total_area < bbox_area < 0.7 * total_area:
                     acceptable_bboxes.append(curr_bbox)
             if len(acceptable_bboxes) == 0:
                 x_min = int(0.15 * width)

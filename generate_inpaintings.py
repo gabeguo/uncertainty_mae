@@ -368,6 +368,7 @@ def main(args):
         print('\tbaseline')
         run_one_image(args, img, model_mae, mask_ratio=mask_ratio, force_mask=ids_shuffle, img_idx=idx,
                       classifier=classifier)
+        plt.clf()
         if idx == args.num_iterations:
             break
 
