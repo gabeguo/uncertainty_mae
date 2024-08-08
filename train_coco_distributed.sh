@@ -1,10 +1,10 @@
 #!/bin/bash
 
 WORKDIR=$(pwd)
-output_path=/burg/zgroup/users/gzg2104/_coco_models/07_25_24/replicateOn_multiNode
+output_path=/burg/zgroup/users/gzg2104/_coco_models/08_04_24/64x2x1
 JOB_DIR=$(pwd)
 python $WORKDIR/submitit_pretrain.py \
-    --ngpus 8 \
+    --ngpus 2 \
     --nodes 1 \
     --timeout 720 \
     --job_dir $JOB_DIR \
@@ -14,14 +14,14 @@ python $WORKDIR/submitit_pretrain.py \
     --output mae.out \
     --error mae.err \
     --dataset_name coco \
-    --batch_size 128 \
+    --batch_size 64 \
     --blr 1.5e-4 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
-    --epochs 400 \
+    --epochs 150 \
     --log_freq 40 \
     --vae \
     --kld_beta 25 \
@@ -38,4 +38,4 @@ python $WORKDIR/submitit_pretrain.py \
     --object_mask \
     --add_default_mask \
     --var 1 \
-    --exclude 'm[005,012]'
+    --exclude 'm[012]'
