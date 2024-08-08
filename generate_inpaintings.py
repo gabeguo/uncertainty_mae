@@ -137,7 +137,6 @@ def classify(img, classifier):
 def run_one_image(args, img, model, img_idx, classifier, sample_idx=None,
                 mask_ratio=0.75, force_mask=None, mean=imagenet_mean, std=imagenet_std,
                 add_default_mask=False):
-    print(f"img: {img_idx}")
 
     x = torch.tensor(img)
 
@@ -334,6 +333,7 @@ def main(args):
         
     print(model_mae)
     for idx, img_dict in tqdm(enumerate(test_loader)):
+        print(f"img: {idx}")
         plt.rcParams['figure.figsize'] = [5, 5]
         img = img_dict['image']
 
