@@ -176,10 +176,10 @@ def run_one_image(args, img, model, img_idx, classifier, sample_idx=None,
     im_infill_square = find_infill_portion(y, mask)
 
     # classify background and inpainting
-    bg_class_id, bg_score = classify(img=im_masked, classifier=classifier)
-    print(f"\tbackground prediction: {CATEGORY_NAMES[bg_class_id]}; {bg_score:.3f}")
+    whole_class_id, whole_score = classify(img=x, classifier=classifier)
+    print(f"\twhole prediction: {CATEGORY_NAMES[whole_class_id]}; {whole_score:.3f}")
 
-    ip_class_id, ip_score = classify(img=im_infill, classifier=classifier)
+    ip_class_id, ip_score = classify(img=im_infill_square, classifier=classifier)
     print(f"\tinfill prediction: {CATEGORY_NAMES[ip_class_id]}; {ip_score:.3f}")
 
     plt.figure(figsize=(24, 5))
