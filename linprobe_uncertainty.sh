@@ -10,5 +10,5 @@ python main_linprobe.py \
     --wandb_project linprobe_cifar \
     --device cuda \
     --master_port 12358 \
-    --end_to_end_finetune
+    --end_to_end_finetune --blr 1e-3
 
