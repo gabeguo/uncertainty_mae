@@ -84,7 +84,7 @@ class Trainer:
         self.optimizer = optimizer
         self.loss_scaler = loss_scaler
         self.log_writer = log_writer
-        self.model = DDP(model, device_ids=[gpu_id], find_unused_parameters=True)
+        self.model = DDP(model, device_ids=[gpu_id], find_unused_parameters=False)
         self.model_without_ddp = model_without_ddp
         self.args = args
 
@@ -181,6 +181,8 @@ def get_args_parser():
     parser.set_defaults(global_pool=False)
     parser.add_argument('--cls_token', action='store_false', dest='global_pool',
                         help='Use class token instead of global pool for classification')
+    parser.add_argument('--end_to_end_finetune', action='store_true',
+                        help='Do we unfreeze all the layers for finetuning?')
 
     # Dataset parameters
     parser.add_argument('--data_path', default='/datasets01/imagenet_full_size/061417/', type=str,
@@ -286,13 +288,13 @@ def set_model(args, model, weight_path):
 
     return model
 
-def set_head(model, device):
+def set_head(model, device, end_to_end_finetune=False):
     print(model.head.weight.size())
     print(model.head.bias.size())
     model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
     # freeze all but the head
     for _, p in model.named_parameters():
-        p.requires_grad = False
+        p.requires_grad = end_to_end_finetune
     for _, p in model.head.named_parameters():
         p.requires_grad = True
 
@@ -408,7 +410,7 @@ def main(rank, args, world_size):
 
     # for linear prob only
     # hack: revise model's head with BN
-    set_head(model, device)
+    set_head(model, device, end_to_end_finetune=args.end_to_end_finetune)
     model.cuda()
 
     model_without_ddp = model
