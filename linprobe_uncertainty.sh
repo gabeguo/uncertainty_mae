@@ -9,5 +9,6 @@ python main_linprobe.py \
     --log_dir /local/zemel/gzg2104/logs \
     --wandb_project linprobe_cifar \
     --device cuda \
-    --master_port 12358
+    --master_port 12358 \
+    --end_to_end_finetune
 
