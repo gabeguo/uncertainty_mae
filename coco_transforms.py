@@ -61,13 +61,14 @@ def transform_function(img_dict, mask_ratio=None):
             for curr_bbox in the_bboxes:
                 x_min, y_min, x_max, y_max = [int(coord) for coord in curr_bbox]
                 bbox_area = (x_max - x_min) * (y_max - y_min)
-                if 0.15 * total_area < bbox_area < 0.85 * total_area:
+                if 0.1 * total_area < bbox_area < 0.7 * total_area:
                     acceptable_bboxes.append(curr_bbox)
             if len(acceptable_bboxes) == 0:
-                x_min = int(0.15 * width)
-                x_max = int(0.85 * width)
-                y_min = int(0.15 * height)
-                y_max = int(0.85 * height)
+                min_dim = min(width, height)
+                x_min = int(0.15 * min_dim)
+                x_max = int(0.85 * min_dim)
+                y_min = int(0.15 * min_dim)
+                y_max = int(0.85 * min_dim)
             else:
                 curr_bbox = random.choice(acceptable_bboxes)
                 x_min, y_min, x_max, y_max = [int(coord) for coord in curr_bbox]
