@@ -10,4 +10,5 @@ python main_finetune.py \
     --log_dir /local/zemel/gzg2104/logs \
     --wandb_project linprobe_cifar \
     --device cuda \
+    --num_workers 16 \
     --master_port 12358
