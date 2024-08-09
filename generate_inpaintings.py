@@ -27,11 +27,7 @@ from functools import partial
 
 from torchvision.models import resnet50, ResNet50_Weights, resnet152, ResNet152_Weights
 
-from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2, FasterRCNN_ResNet50_FPN_V2_Weights
-from torchvision.utils import draw_bounding_boxes
-from torchvision.transforms.functional import to_pil_image
-
-CATEGORY_NAMES = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT.meta["categories"]
+CATEGORY_NAMES = ResNet50_Weights.DEFAULT.meta["categories"]
 
 imagenet_mean = 255 * np.array([0.485, 0.456, 0.406])
 imagenet_std = 255 * np.array([0.229, 0.224, 0.225])
@@ -138,30 +134,7 @@ def classify(img, classifier):
 
     return class_id, score
 
-def detect_objects(img, detector, preprocess):
-    # Step 3: Apply inference preprocessing transforms
-    # batch = [preprocess(img)]
-    batch = [img]
-
-    # Step 4: Use the model and visualize the prediction
-    prediction = detector(batch)[0]
-    labels = [CATEGORY_NAMES[i] for i in prediction["labels"]]
-    print(labels)
-    display_img = torch.permute(img, (1, 2, 0))
-    display_img = display_img.detach().cpu() * torch.tensor(imagenet_std) + torch.tensor(imagenet_mean)
-    assert torch.min(display_img) > 0 and torch.max(display_img) < 256
-    display_img = display_img.to(dtype=torch.uint8)
-    display_img = torch.permute(display_img, (2, 0, 1))
-    box = draw_bounding_boxes(display_img, boxes=prediction["boxes"],
-                            labels=labels,
-                            colors="red",
-                            width=4, font_size=30)
-    im = to_pil_image(box.detach())
-    im.save('dummy.png')
-    
-    return
-
-def run_one_image(args, img, model, img_idx, detector, preprocess, sample_idx=None,
+def run_one_image(args, img, model, img_idx, classifier, sample_idx=None,
                 mask_ratio=0.75, force_mask=None, mean=imagenet_mean, std=imagenet_std,
                 add_default_mask=False):
 
@@ -202,7 +175,12 @@ def run_one_image(args, img, model, img_idx, detector, preprocess, sample_idx=No
     # infilled portion only, resized to square
     im_infill_square = find_infill_portion(y, mask)
 
-    detect_objects(img=img, detector=detector, preprocess=preprocess)
+    # classify background and inpainting
+    whole_class_id, whole_score = classify(img=x, classifier=classifier)
+    print(f"\twhole prediction: {CATEGORY_NAMES[whole_class_id]}; {whole_score:.3f}")
+
+    ip_class_id, ip_score = classify(img=im_infill_square.unsqueeze(0), classifier=classifier)
+    print(f"\tinfill prediction: {CATEGORY_NAMES[ip_class_id]}; {ip_score:.3f}")
 
     plt.figure(figsize=(24, 5))
     plt.rcParams.update({'font.size': 22})
@@ -347,14 +325,9 @@ def main(args):
     uncertainty_model_mae.eval()
 
     # Using pretrained weights:
-    # Step 1: Initialize model with the best available weights
-    # Thanks https://pytorch.org/vision/stable/models.html
-    weights = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT
-    object_detector = fasterrcnn_resnet50_fpn_v2(weights=weights, box_score_thresh=0.2)
-    object_detector = object_detector.cuda()
-    object_detector.eval()
-    # Step 2: Initialize the inference transforms
-    detect_preprocess = weights.transforms()
+    classifier = resnet152(weights=ResNet152_Weights.IMAGENET1K_V1)
+    classifier = classifier.cuda()
+    classifier.eval()
 
     add_default_mask=True
         
@@ -391,10 +364,10 @@ def main(args):
         for j in range(args.num_samples):
             run_one_image(args, img, uncertainty_model_mae, mask_ratio=mask_ratio, force_mask=(keep_indices, mask_indices),
                             mean=imagenet_mean, std=imagenet_std, add_default_mask=add_default_mask, img_idx=idx, sample_idx=j,
-                            detector=object_detector, preprocess=detect_preprocess)
+                            classifier=classifier)
         print('\tbaseline')
         run_one_image(args, img, model_mae, mask_ratio=mask_ratio, force_mask=ids_shuffle, img_idx=idx,
-                      detector=object_detector, preprocess=detect_preprocess)
+                      classifier=classifier)
         plt.clf()
         if idx == args.num_iterations:
             break
@@ -402,4 +375,3 @@ def main(args):
 if __name__ == "__main__":
     args = create_args()
     main(args)
-
