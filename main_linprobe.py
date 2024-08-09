@@ -71,6 +71,7 @@ class Trainer:
         data_loader_train: torch.utils.data.DataLoader,
         data_loader_test: torch.utils.data.DataLoader,
         optimizer: torch.optim.Optimizer,
+        criterion, mixup_fn,
         gpu_id: int,
         loss_scaler,
         log_writer,
@@ -88,7 +89,9 @@ class Trainer:
         self.model_without_ddp = model_without_ddp
         self.args = args
 
-        self.criterion = torch.nn.CrossEntropyLoss()
+        self.mixup_fn = mixup_fn
+        self.criterion = criterion
+        print(f"mixup = {self.mixup_fn}")
         print("criterion = %s" % str(self.criterion))
 
         self.max_accuracy = 0
@@ -101,7 +104,7 @@ class Trainer:
         train_stats = train_one_epoch(
             model=self.model, criterion=self.criterion, data_loader=self.data_loader_train,
             optimizer=self.optimizer, device=self.gpu_id, epoch=epoch, loss_scaler=self.loss_scaler,
-            max_norm=5, # Added this part
+            max_norm=5, mixup_fn=self.mixup_fn,
             log_writer=self.log_writer,
             args=self.args
         )
@@ -454,9 +457,11 @@ def main(rank, args, world_size):
         wandb.watch(model)
     print(f"Start training for {args.epochs} epochs")
 
+    criterion = torch.nn.CrossEntropyLoss()
+
     trainer = Trainer(model=model, 
                       data_loader_train=data_loader_train, data_loader_test=data_loader_val,
-                      optimizer=optimizer,
+                      optimizer=optimizer, criterion=criterion, mixup_fn=None,
                       gpu_id=rank, loss_scaler=loss_scaler, log_writer=log_writer,
                       model_without_ddp=model_without_ddp, args=args)
     trainer.train()
