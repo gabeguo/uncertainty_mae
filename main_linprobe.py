@@ -71,6 +71,7 @@ class Trainer:
         data_loader_train: torch.utils.data.DataLoader,
         data_loader_test: torch.utils.data.DataLoader,
         optimizer: torch.optim.Optimizer,
+        criterion, mixup_fn,
         gpu_id: int,
         loss_scaler,
         log_writer,
@@ -84,11 +85,13 @@ class Trainer:
         self.optimizer = optimizer
         self.loss_scaler = loss_scaler
         self.log_writer = log_writer
-        self.model = DDP(model, device_ids=[gpu_id], find_unused_parameters=True)
+        self.model = DDP(model, device_ids=[gpu_id], find_unused_parameters=False)
         self.model_without_ddp = model_without_ddp
         self.args = args
 
-        self.criterion = torch.nn.CrossEntropyLoss()
+        self.mixup_fn = mixup_fn
+        self.criterion = criterion
+        print(f"mixup = {self.mixup_fn}")
         print("criterion = %s" % str(self.criterion))
 
         self.max_accuracy = 0
@@ -101,7 +104,7 @@ class Trainer:
         train_stats = train_one_epoch(
             model=self.model, criterion=self.criterion, data_loader=self.data_loader_train,
             optimizer=self.optimizer, device=self.gpu_id, epoch=epoch, loss_scaler=self.loss_scaler,
-            max_norm=5, # Added this part
+            max_norm=5, mixup_fn=self.mixup_fn,
             log_writer=self.log_writer,
             args=self.args
         )
@@ -181,6 +184,8 @@ def get_args_parser():
     parser.set_defaults(global_pool=False)
     parser.add_argument('--cls_token', action='store_false', dest='global_pool',
                         help='Use class token instead of global pool for classification')
+    parser.add_argument('--end_to_end_finetune', action='store_true',
+                        help='Do we unfreeze all the layers for finetuning?')
 
     # Dataset parameters
     parser.add_argument('--data_path', default='/datasets01/imagenet_full_size/061417/', type=str,
@@ -286,13 +291,13 @@ def set_model(args, model, weight_path):
 
     return model
 
-def set_head(model, device):
+def set_head(model, device, end_to_end_finetune=False):
     print(model.head.weight.size())
     print(model.head.bias.size())
     model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
     # freeze all but the head
     for _, p in model.named_parameters():
-        p.requires_grad = False
+        p.requires_grad = end_to_end_finetune
     for _, p in model.head.named_parameters():
         p.requires_grad = True
 
@@ -408,7 +413,7 @@ def main(rank, args, world_size):
 
     # for linear prob only
     # hack: revise model's head with BN
-    set_head(model, device)
+    set_head(model, device, end_to_end_finetune=args.end_to_end_finetune)
     model.cuda()
 
     model_without_ddp = model
@@ -452,9 +457,11 @@ def main(rank, args, world_size):
         wandb.watch(model)
     print(f"Start training for {args.epochs} epochs")
 
+    criterion = torch.nn.CrossEntropyLoss()
+
     trainer = Trainer(model=model, 
                       data_loader_train=data_loader_train, data_loader_test=data_loader_val,
-                      optimizer=optimizer,
+                      optimizer=optimizer, criterion=criterion, mixup_fn=None,
                       gpu_id=rank, loss_scaler=loss_scaler, log_writer=log_writer,
                       model_without_ddp=model_without_ddp, args=args)
     trainer.train()

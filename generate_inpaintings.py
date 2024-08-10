@@ -25,6 +25,13 @@ from torchvision.transforms import v2
 import coco_transforms
 from functools import partial
 
+from torchvision.models import resnet50, ResNet50_Weights, resnet152, ResNet152_Weights
+from torchvision.models import vit_l_16, ViT_L_16_Weights
+
+torch.hub.set_dir('/local/zemel/gzg2104/pretrained_weights')
+
+CATEGORY_NAMES = ViT_L_16_Weights.IMAGENET1K_SWAG_E2E_V1.meta["categories"]
+
 imagenet_mean = 255 * np.array([0.485, 0.456, 0.406])
 imagenet_std = 255 * np.array([0.229, 0.224, 0.225])
 var = 1
@@ -119,9 +126,29 @@ def find_infill_portion(reconstruction, mask):
 
     return reconstructed_portion
 
-def run_one_image(args, img, model, img_idx, sample_idx=None,
+def classify(args, img, classifier):
+    img = torch.einsum('nhwc->nchw', img)
+    img = img.cuda()
+    img = torchvision.transforms.functional.resize(img.squeeze(0), size=(512, 512)).unsqueeze(0)
+
+    prediction = classifier(img).squeeze(0).softmax(0)
+
+    plausible_indices = (prediction > args.threshold).nonzero()
+    plausible_scores = prediction[plausible_indices]
+
+    assert len(plausible_indices) == len(plausible_scores)
+
+    return plausible_indices, plausible_scores
+
+    # class_id = prediction.argmax().item()
+    # score = prediction[class_id].item()
+
+    # return class_id, score
+
+def run_one_image(args, img, model, img_idx, classifier, sample_idx=None,
                 mask_ratio=0.75, force_mask=None, mean=imagenet_mean, std=imagenet_std,
-                add_default_mask=False):
+                add_default_mask=False, classify_ground_truth=False):
+
     x = torch.tensor(img)
 
     # make it a batch-like
@@ -131,10 +158,10 @@ def run_one_image(args, img, model, img_idx, sample_idx=None,
     # run MAE
     if isinstance(model, UncertaintyMAE):
         loss, y, mask = model(x.float(), mask_ratio=mask_ratio, force_mask=force_mask, 
-                              add_default_mask=add_default_mask, print_stats=True)
+                              add_default_mask=add_default_mask, print_stats=False)
         y = model.visible_mae.unpatchify(y)
     else:
-        loss, y, mask = model(x.float(), mask_ratio=mask_ratio, force_mask=force_mask, print_stats=True)
+        loss, y, mask = model(x.float(), mask_ratio=mask_ratio, force_mask=force_mask, print_stats=False)
         y = model.unpatchify(y)
     y = torch.einsum('nchw->nhwc', y).detach().cpu()
 
@@ -158,6 +185,24 @@ def run_one_image(args, img, model, img_idx, sample_idx=None,
     im_infill = y * mask
     # infilled portion only, resized to square
     im_infill_square = find_infill_portion(y, mask)
+
+    # classify background, GT object, inpainted object
+    if classify_ground_truth:
+        bg_class_ids, bg_scores = classify(args, img=im_masked, classifier=classifier)
+        print(f"\tbackground prediction:")
+        for bg_class_id, bg_score in zip(bg_class_ids, bg_scores):
+            print(f"\t\t{CATEGORY_NAMES[bg_class_id.item()]}; {bg_score.item():.3f}")
+
+        gt_class_ids, gt_scores = classify(args, img=x*mask, classifier=classifier)
+        print(f"\tgt object prediction:")
+        for gt_class_id, gt_score in zip(gt_class_ids, gt_scores):
+            print(f"\t\t{CATEGORY_NAMES[gt_class_id.item()]}; {gt_score.item():.3f}")
+
+    ip_class_ids, ip_scores = classify(args, img=im_infill, classifier=classifier)
+    print(f"\tinfill prediction:")
+    for ip_class_id, ip_score in zip(ip_class_ids, ip_scores):
+        print(f"\t\t{CATEGORY_NAMES[ip_class_id.item()]}; {ip_score.item():.3f}")
+
 
     plt.figure(figsize=(24, 5))
     plt.rcParams.update({'font.size': 22})
@@ -191,6 +236,7 @@ def run_one_image(args, img, model, img_idx, sample_idx=None,
             f"{img_idx}_{'v' if sample_idx is None else sample_idx}_square.png")
     plt.tight_layout(pad=0)
     plt.savefig(square_save_path)
+    plt.close()
 
     return
 
@@ -268,13 +314,14 @@ def get_mask_indices(mask_layout):
 def create_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--uncertainty_weights', type=str,
-                        default='/local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-120.pth')
+                        default='/local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-600.pth')
     parser.add_argument('--baseline_weights', type=str,
                         default='/home/gzg2104/uncertainty_mae/mae_visualize_vit_base.pth')
-    parser.add_argument('--num_iterations', type=int, default=10)
+    parser.add_argument('--num_iterations', type=int, default=20)
     parser.add_argument('--num_samples', type=int, default=3)
-    parser.add_argument('--save_dir', type=str, default='/local/zemel/gzg2104/outputs/08_03_24')
+    parser.add_argument('--save_dir', type=str, default='/local/zemel/gzg2104/outputs/08_08_24_cov')
     parser.add_argument('--random_mask', action='store_true')
+    parser.add_argument('--threshold', type=float, default=0.2)
 
     args = parser.parse_args()
 
@@ -301,10 +348,16 @@ def main(args):
     uncertainty_model_mae = uncertainty_model_mae.cuda()
     uncertainty_model_mae.eval()
 
+    # Using pretrained weights:
+    classifier = vit_l_16(weights=ViT_L_16_Weights.IMAGENET1K_SWAG_E2E_V1)
+    classifier = classifier.cuda()
+    classifier.eval()
+
     add_default_mask=True
         
     print(model_mae)
     for idx, img_dict in tqdm(enumerate(test_loader)):
+        print(f"img: {idx}")
         plt.rcParams['figure.figsize'] = [5, 5]
         img = img_dict['image']
 
@@ -334,12 +387,15 @@ def main(args):
         mask_ratio = 1 - keep_indices.shape[1] / ids_shuffle.shape[1]
         for j in range(args.num_samples):
             run_one_image(args, img, uncertainty_model_mae, mask_ratio=mask_ratio, force_mask=(keep_indices, mask_indices),
-                            mean=imagenet_mean, std=imagenet_std, add_default_mask=add_default_mask, img_idx=idx, sample_idx=j)
-        run_one_image(args, img, model_mae, mask_ratio=mask_ratio, force_mask=ids_shuffle, img_idx=idx)
+                            mean=imagenet_mean, std=imagenet_std, add_default_mask=add_default_mask, img_idx=idx, sample_idx=j,
+                            classifier=classifier, classify_ground_truth=(j == 0))
+        print('\tbaseline')
+        run_one_image(args, img, model_mae, mask_ratio=mask_ratio, force_mask=ids_shuffle, img_idx=idx,
+                      classifier=classifier)
+        plt.close()
         if idx == args.num_iterations:
             break
 
 if __name__ == "__main__":
     args = create_args()
     main(args)
-

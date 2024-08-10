@@ -1,10 +1,10 @@
-output_path=/local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch
+output_path=/local/zemel/gzg2104/_imagenet_models/08_10_24/batch1024_beta35
 python main_pretrain.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
     --batch_size 256 \
     --blr 1.5e-4 \
-    --accum_iter 1 \
+    --accum_iter 2 \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
@@ -13,7 +13,7 @@ python main_pretrain.py \
     --log_freq 20 \
     --num_workers 16 \
     --vae \
-    --kld_beta 30 \
+    --kld_beta 35 \
     --invisible_lr_scale 0.01 \
     --mask_ratio 0.75 \
     --partial_vae \
