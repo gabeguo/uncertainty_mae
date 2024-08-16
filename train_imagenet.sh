@@ -23,7 +23,8 @@ python main_pretrain.py \
     --mixed_precision \
     --wandb_project imagenet_hippo \
     --disable_zero_conv \
-    --master_port 12355 \
+    --master_port 12356 \
+    --resume /local/zemel/gzg2104/_imagenet_models/manitou_imports/08_10_24/beta25/checkpoint-100.pth \
     --object_mask \
     --add_default_mask \
     --var 1
