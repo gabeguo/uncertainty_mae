@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_imagenet_models/08_10_24/batch1024_beta35
+output_path=/local/zemel/gzg2104/_imagenet_models/08_16_24/batch1024_beta35
 python main_pretrain.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
@@ -14,7 +14,7 @@ python main_pretrain.py \
     --num_workers 16 \
     --vae \
     --kld_beta 35 \
-    --invisible_lr_scale 0.01 \
+    --invisible_lr_scale 7.5e-3 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
