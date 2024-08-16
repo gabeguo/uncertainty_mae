@@ -1,21 +1,21 @@
 #!/bin/bash
 
 WORKDIR=$(pwd)
-output_path=/burg/zgroup/users/gzg2104/_imagenet_models/07_28_24/initialTry
+output_path=/burg/zgroup/users/gzg2104/_imagenet_models/08_10_24/beta25
 JOB_DIR=$(pwd)
 python $WORKDIR/submitit_pretrain.py \
     --ngpus 4 \
     --nodes 1 \
-    --accum_iter 8 \
-    --timeout 720 \
+    --accum_iter 2 \
+    --timeout 7200 \
     --job_dir $JOB_DIR \
     --partition short \
     --account zgroup \
-    --job_name imagenet_try \
+    --job_name imagenet_beta25 \
     --output mae.out \
     --error mae.err \
     --dataset_name imagenet \
-    --data_path /burg/zgroup/users/gzg2104/data/imagenet/train \
+    --data_path /burg/zgroup/users/gzg2104/data \
     --batch_size 128 \
     --blr 1.5e-4 \
     --output_dir $output_path \
@@ -33,8 +33,8 @@ python $WORKDIR/submitit_pretrain.py \
     --eps 1e-8 \
     --weight_decay 0.05 \
     --mixed_precision \
-    --wandb_project imagenet_scaledUp \
-    --wandb_name initialTryManitou \
+    --wandb_project imagenet_hippo \
+    --wandb_name beta25_manitou \
     --disable_zero_conv \
     --object_mask \
     --add_default_mask \
