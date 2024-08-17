@@ -24,7 +24,7 @@ python main_pretrain.py \
     --wandb_project imagenet_hippo \
     --disable_zero_conv \
     --master_port 12356 \
-    --resume /local/zemel/gzg2104/_imagenet_models/manitou_imports/08_10_24/beta25/checkpoint-100.pth \
+    --resume /local/zemel/gzg2104/_imagenet_models/08_16_24/batch1024_beta25/checkpoint-120.pth \
     --object_mask \
     --add_default_mask \
     --var 1
