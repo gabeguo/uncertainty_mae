@@ -27,4 +27,4 @@ python main_pretrain.py \
     --object_mask \
     --add_default_mask \
     --var 1 \
-    --resume /local/zemel/gzg2104/_imagenet_models/08_16_24/batch1024_beta35/checkpoint-120.pth
+    --resume /local/zemel/gzg2104/_imagenet_models/08_16_24/batch1024_beta35/checkpoint-20.pth
