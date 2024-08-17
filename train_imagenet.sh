@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_imagenet_models/08_16_24/batch1024_beta25
+output_path=/local/zemel/gzg2104/_imagenet_models/08_16_24/batch1024_beta35
 python main_pretrain.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
@@ -13,8 +13,8 @@ python main_pretrain.py \
     --log_freq 20 \
     --num_workers 16 \
     --vae \
-    --kld_beta 25 \
-    --invisible_lr_scale 1e-2 \
+    --kld_beta 35 \
+    --invisible_lr_scale 7.5e-3 \
     --mask_ratio 0.75 \
     --partial_vae \
     --dropout_ratio 0 \
@@ -23,8 +23,8 @@ python main_pretrain.py \
     --mixed_precision \
     --wandb_project imagenet_hippo \
     --disable_zero_conv \
-    --master_port 12356 \
-    --resume /local/zemel/gzg2104/_imagenet_models/08_16_24/batch1024_beta25/checkpoint-120.pth \
+    --master_port 12355 \
     --object_mask \
     --add_default_mask \
-    --var 1
+    --var 1 \
+    --resume /local/zemel/gzg2104/_imagenet_models/08_16_24/batch1024_beta35/checkpoint-120.pth
