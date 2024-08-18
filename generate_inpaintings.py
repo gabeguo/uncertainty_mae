@@ -9,6 +9,7 @@ import json
 
 import torch
 import numpy as np
+import scipy.stats as stats
 
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -299,6 +300,16 @@ def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_coo
 
         with open(os.path.join(cooccurrence_folder, f"{title}.npy"), 'wb') as fout:
             np.save(fout, cooccurrences)
+
+    ours_correlation = stats.pearsonr(x=gt_cooccurrences.flatten(), y=pred_cooccurrences_ours.flatten()).statistic
+    baseline_correlation = stats.pearsonr(x=gt_cooccurrences.flatten(), y=pred_cooccurrences_baseline.flatten()).statistic
+
+    with open(os.path.join(cooccurrence_folder, 'co-occurrence_matching.json'), 'w') as fout:
+        results = {
+            'Correlation (GT & Partial VAE)': ours_correlation,
+            'Correlation (GT & MAE)': baseline_correlation
+        }
+        json.dump(fout, results, indent=4)
 
     return
 
