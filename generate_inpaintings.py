@@ -439,7 +439,7 @@ def main(args):
         pred_cooccurrences_baseline=pred_cooccurrences_baseline)
 
     with open(os.path.join(args.save_dir, 'settings.json'), 'w') as fout:
-        json.dump(vars(args), fout)
+        json.dump(vars(args), fout, indent=4)
 
     return
 
