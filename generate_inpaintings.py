@@ -147,7 +147,7 @@ def classify(args, img, classifier):
 
 def run_one_image(args, img, model, img_idx, classifier, gt_cooccurrences, pred_cooccurrences,
                 sample_idx=None, mask_ratio=0.75, force_mask=None, mean=imagenet_mean, std=imagenet_std,
-                add_default_mask=False):
+                add_default_mask=False, bg_classes=None, gt_object_classes=None):
 
     x = torch.tensor(img)
 
@@ -187,12 +187,14 @@ def run_one_image(args, img, model, img_idx, classifier, gt_cooccurrences, pred_
     im_infill_square = find_infill_portion(y, mask)
 
     # classify background, GT object, inpainted object
-    bg_class_ids, bg_scores = classify(args, img=im_masked, classifier=classifier)
+    bg_class_ids, bg_scores = bg_classes if bg_classes is not None else \
+        classify(args, img=im_masked, classifier=classifier)
     print(f"\n\tbackground prediction:")
     for bg_class_id, bg_score in zip(bg_class_ids, bg_scores):
         print(f"\t\t{CATEGORY_NAMES[bg_class_id.item()]}; {bg_score.item():.3f}")
 
-    gt_class_ids, gt_scores = classify(args, img=x*mask, classifier=classifier)
+    gt_class_ids, gt_scores = gt_object_classes if gt_object_classes is not None else \
+        classify(args, img=x*mask, classifier=classifier)
     print(f"\tgt object prediction:")
     for gt_class_id, gt_score in zip(gt_class_ids, gt_scores):
         print(f"\t\t{CATEGORY_NAMES[gt_class_id.item()]}; {gt_score.item():.3f}")
@@ -243,7 +245,7 @@ def run_one_image(args, img, model, img_idx, classifier, gt_cooccurrences, pred_
     plt.savefig(square_save_path)
     plt.close('all')
 
-    return
+    return (bg_class_ids, bg_scores), (gt_class_ids, gt_scores)
 
 def create_checker():
     img = torch.zeros(1, 3, 224, 224)
@@ -394,19 +396,22 @@ def main(args):
 
         ids_shuffle = torch.cat((keep_indices, mask_indices), dim=1)
         mask_ratio = 1 - keep_indices.shape[1] / ids_shuffle.shape[1]
+
+        print('\n\tbaseline')
+        bg_classes, gt_object_classes = run_one_image(args, img, model_mae, 
+                gt_cooccurrences=gt_cooccurrences, pred_cooccurrences=pred_cooccurrences_baseline,
+                mask_ratio=mask_ratio, force_mask=ids_shuffle, img_idx=idx,
+                classifier=classifier)
+        plt.close('all')
+
         print('\n\tours')
         for j in range(args.num_samples):
             run_one_image(args, img, uncertainty_model_mae, 
                         gt_cooccurrences=gt_cooccurrences, pred_cooccurrences=pred_cooccurrences_ours,
                         mask_ratio=mask_ratio, force_mask=(keep_indices, mask_indices),
                         mean=imagenet_mean, std=imagenet_std, add_default_mask=add_default_mask, img_idx=idx, sample_idx=j,
-                        classifier=classifier)
-        print('\n\tbaseline')
-        run_one_image(args, img, model_mae, 
-                gt_cooccurrences=gt_cooccurrences, pred_cooccurrences=pred_cooccurrences_baseline,
-                mask_ratio=mask_ratio, force_mask=ids_shuffle, img_idx=idx,
-                classifier=classifier)
-        plt.close('all')
+                        classifier=classifier, bg_classes=bg_classes, gt_object_classes=gt_object_classes)
+            plt.close('all')
         if idx == args.num_iterations:
             break
 
