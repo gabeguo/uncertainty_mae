@@ -145,9 +145,9 @@ def classify(args, img, classifier):
 
     # return class_id, score
 
-def run_one_image(args, img, model, img_idx, classifier, sample_idx=None,
-                mask_ratio=0.75, force_mask=None, mean=imagenet_mean, std=imagenet_std,
-                add_default_mask=False, classify_ground_truth=False):
+def run_one_image(args, img, model, img_idx, classifier, gt_cooccurrences, pred_cooccurrences,
+                sample_idx=None, mask_ratio=0.75, force_mask=None, mean=imagenet_mean, std=imagenet_std,
+                add_default_mask=False):
 
     x = torch.tensor(img)
 
@@ -187,36 +187,41 @@ def run_one_image(args, img, model, img_idx, classifier, sample_idx=None,
     im_infill_square = find_infill_portion(y, mask)
 
     # classify background, GT object, inpainted object
-    if classify_ground_truth:
-        bg_class_ids, bg_scores = classify(args, img=im_masked, classifier=classifier)
-        print(f"\tbackground prediction:")
-        for bg_class_id, bg_score in zip(bg_class_ids, bg_scores):
-            print(f"\t\t{CATEGORY_NAMES[bg_class_id.item()]}; {bg_score.item():.3f}")
+    bg_class_ids, bg_scores = classify(args, img=im_masked, classifier=classifier)
+    print(f"\n\tbackground prediction:")
+    for bg_class_id, bg_score in zip(bg_class_ids, bg_scores):
+        print(f"\t\t{CATEGORY_NAMES[bg_class_id.item()]}; {bg_score.item():.3f}")
 
-        gt_class_ids, gt_scores = classify(args, img=x*mask, classifier=classifier)
-        print(f"\tgt object prediction:")
-        for gt_class_id, gt_score in zip(gt_class_ids, gt_scores):
-            print(f"\t\t{CATEGORY_NAMES[gt_class_id.item()]}; {gt_score.item():.3f}")
-
+    gt_class_ids, gt_scores = classify(args, img=x*mask, classifier=classifier)
+    print(f"\tgt object prediction:")
+    for gt_class_id, gt_score in zip(gt_class_ids, gt_scores):
+        print(f"\t\t{CATEGORY_NAMES[gt_class_id.item()]}; {gt_score.item():.3f}")
+    
     ip_class_ids, ip_scores = classify(args, img=im_infill, classifier=classifier)
     print(f"\tinfill prediction:")
     for ip_class_id, ip_score in zip(ip_class_ids, ip_scores):
         print(f"\t\t{CATEGORY_NAMES[ip_class_id.item()]}; {ip_score.item():.3f}")
 
+    # update cooccurrence stats
+    for bg_class_id in bg_class_ids:
+        for gt_class_id in gt_class_ids:
+            gt_cooccurrences[bg_class_id, gt_class_id] += 1
+        for ip_class_id in ip_class_ids:
+            pred_cooccurrences[bg_class_id, ip_class_id] += 1
 
     plt.figure(figsize=(24, 5))
     plt.rcParams.update({'font.size': 22})
-    plt.subplot(1, 6, 1)
+    plt.subplot(1, 5, 1)
     show_image(x[0], "original", mean=mean, std=std)
-    plt.subplot(1, 6, 2)
+    plt.subplot(1, 5, 2)
     show_image(im_masked[0], "masked", mean=mean, std=std)
-    plt.subplot(1, 6, 3)
+    plt.subplot(1, 5, 3)
     show_image(y[0], "reconstruction", mean=mean, std=std)
-    plt.subplot(1, 6, 4)
+    plt.subplot(1, 5, 4)
     show_image(im_infill[0], "infilled", mean=mean, std=std)
-    plt.subplot(1, 6, 5)
-    show_image(im_infill_square, "infilled (resized)", mean=mean, std=std)
-    plt.subplot(1, 6, 6)
+    # plt.subplot(1, 6, 5)
+    # show_image(im_infill_square, "infilled (resized)", mean=mean, std=std)
+    plt.subplot(1, 5, 5)
     show_image(im_paste[0], "reconstruction + visible", mean=mean, std=std)
 
     save_path = os.path.join(args.save_dir, 
@@ -236,7 +241,7 @@ def run_one_image(args, img, model, img_idx, classifier, sample_idx=None,
             f"{img_idx}_{'v' if sample_idx is None else sample_idx}_square.png")
     plt.tight_layout(pad=0)
     plt.savefig(square_save_path)
-    plt.close()
+    plt.close('all')
 
     return
 
@@ -253,6 +258,29 @@ def create_checker():
                 r*block_size:(r+1)*block_size, 
                 c*block_size:(c+1)*block_size] = val
     return img
+
+def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_cooccurrences_baseline):
+    cooccurrence_folder = os.path.join(args.save_dir, 'cooccurrences')
+    os.makedirs(cooccurrence_folder, exist_ok=True)
+    
+    with open(os.path.join(cooccurrence_folder, 'gt_cooccurrences.npy'), 'wb') as fout:
+        np.save(fout, gt_cooccurrences)
+    with open(os.path.join(cooccurrence_folder, 'pred_cooccurrences_ours.npy'), 'wb') as fout:
+        np.save(fout, pred_cooccurrences_ours)
+    with open(os.path.join(cooccurrence_folder, 'pred_cooccurrences_baseline.npy'), 'wb') as fout:
+        np.save(fout, pred_cooccurrences_baseline)
+    
+    plt.matshow(gt_cooccurrences)
+    plt.savefig(os.path.join(cooccurrence_folder, 'gt_cooccurrences.pdf'))
+    plt.close('all')
+    plt.matshow(pred_cooccurrences_ours)
+    plt.savefig(os.path.join(cooccurrence_folder, 'pred_cooccurrences_ours.pdf'))
+    plt.close('all')
+    plt.matshow(pred_cooccurrences_baseline)
+    plt.savefig(os.path.join(cooccurrence_folder, 'pred_cooccurrences_baseline.pdf'))
+    plt.close('all')
+
+    return
 
 def load_decoder_state_dict(model, chkpt_dir):
     state_dict = torch.load(chkpt_dir)['model']
@@ -311,22 +339,6 @@ def get_mask_indices(mask_layout):
 
     return keep_indices, mask_indices
 
-def create_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--uncertainty_weights', type=str,
-                        default='/local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-600.pth')
-    parser.add_argument('--baseline_weights', type=str,
-                        default='/home/gzg2104/uncertainty_mae/mae_visualize_vit_base.pth')
-    parser.add_argument('--num_iterations', type=int, default=20)
-    parser.add_argument('--num_samples', type=int, default=3)
-    parser.add_argument('--save_dir', type=str, default='/local/zemel/gzg2104/outputs/08_08_24_cov')
-    parser.add_argument('--random_mask', action='store_true')
-    parser.add_argument('--threshold', type=float, default=0.2)
-
-    args = parser.parse_args()
-
-    return args
-
 def get_inpaint_dir(args):
     return os.path.join(args.save_dir, 'inpaints')
 
@@ -354,6 +366,11 @@ def main(args):
     classifier.eval()
 
     add_default_mask=True
+
+    # idx 0 is background, idx 1 is masked part
+    gt_cooccurrences = np.zeros((1000, 1000))
+    pred_cooccurrences_ours = np.zeros((1000, 1000))
+    pred_cooccurrences_baseline = np.zeros((1000, 1000))
         
     print(model_mae)
     for idx, img_dict in tqdm(enumerate(test_loader)):
@@ -361,22 +378,14 @@ def main(args):
         plt.rcParams['figure.figsize'] = [5, 5]
         img = img_dict['image']
 
-        if idx == 0:
-            img = create_checker()
-
         assert img.shape == (1, 3, 224, 224)
         img = img.cuda()
         img = img.squeeze()
 
         torch.manual_seed(idx)
-        #print(mask_layout.shape)
         if args.random_mask:
             mask_layout = torch.ones(14, 14).to(device=img.device)
             randomize_mask_layout(mask_layout, mask_ratio=0.75)
-            mask_layout = mask_layout.reshape(1, 14, 14)
-        elif idx == 0:
-            mask_layout = torch.ones(14, 14).to(device=img.device)
-            mask_layout[4:8, 4:8] = 0
             mask_layout = mask_layout.reshape(1, 14, 14)
         else:
             mask_layout = img_dict['token_mask'].to(device=img.device)
@@ -385,16 +394,43 @@ def main(args):
 
         ids_shuffle = torch.cat((keep_indices, mask_indices), dim=1)
         mask_ratio = 1 - keep_indices.shape[1] / ids_shuffle.shape[1]
+        print('\n\tours')
         for j in range(args.num_samples):
-            run_one_image(args, img, uncertainty_model_mae, mask_ratio=mask_ratio, force_mask=(keep_indices, mask_indices),
-                            mean=imagenet_mean, std=imagenet_std, add_default_mask=add_default_mask, img_idx=idx, sample_idx=j,
-                            classifier=classifier, classify_ground_truth=(j == 0))
-        print('\tbaseline')
-        run_one_image(args, img, model_mae, mask_ratio=mask_ratio, force_mask=ids_shuffle, img_idx=idx,
-                      classifier=classifier)
-        plt.close()
+            run_one_image(args, img, uncertainty_model_mae, 
+                        gt_cooccurrences=gt_cooccurrences, pred_cooccurrences=pred_cooccurrences_ours,
+                        mask_ratio=mask_ratio, force_mask=(keep_indices, mask_indices),
+                        mean=imagenet_mean, std=imagenet_std, add_default_mask=add_default_mask, img_idx=idx, sample_idx=j,
+                        classifier=classifier)
+        print('\n\tbaseline')
+        run_one_image(args, img, model_mae, 
+                gt_cooccurrences=gt_cooccurrences, pred_cooccurrences=pred_cooccurrences_baseline,
+                mask_ratio=mask_ratio, force_mask=ids_shuffle, img_idx=idx,
+                classifier=classifier)
+        plt.close('all')
         if idx == args.num_iterations:
             break
+
+    save_cooccurrences(args, gt_cooccurrences=gt_cooccurrences, 
+        pred_cooccurrences_ours=pred_cooccurrences_ours,
+        pred_cooccurrences_baseline=pred_cooccurrences_baseline)
+
+    return
+
+def create_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--uncertainty_weights', type=str,
+                        default='/local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-600.pth')
+    parser.add_argument('--baseline_weights', type=str,
+                        default='/home/gzg2104/uncertainty_mae/mae_visualize_vit_base.pth')
+    parser.add_argument('--num_iterations', type=int, default=20)
+    parser.add_argument('--num_samples', type=int, default=3)
+    parser.add_argument('--save_dir', type=str, default='/local/zemel/gzg2104/outputs/08_08_24_cov')
+    parser.add_argument('--random_mask', action='store_true')
+    parser.add_argument('--threshold', type=float, default=0.2)
+
+    args = parser.parse_args()
+
+    return args
 
 if __name__ == "__main__":
     args = create_args()
