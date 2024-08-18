@@ -268,35 +268,35 @@ def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_coo
     cooccurrence_folder = os.path.join(args.save_dir, 'cooccurrences')
     os.makedirs(cooccurrence_folder, exist_ok=True)
     
-    with open(os.path.join(cooccurrence_folder, 'gt_cooccurrences.npy'), 'wb') as fout:
-        np.save(fout, gt_cooccurrences)
-    with open(os.path.join(cooccurrence_folder, 'pred_cooccurrences_ours.npy'), 'wb') as fout:
-        np.save(fout, pred_cooccurrences_ours)
-    with open(os.path.join(cooccurrence_folder, 'pred_cooccurrences_baseline.npy'), 'wb') as fout:
-        np.save(fout, pred_cooccurrences_baseline)
-
     # get sparsity
     total_occurrence_matrix = gt_cooccurrences + pred_cooccurrences_ours + pred_cooccurrences_baseline
     nonzero_rows, nonzero_cols = np.nonzero(total_occurrence_matrix)
     nonzero_rows = list(sorted(set(nonzero_rows)))
     nonzero_cols = list(sorted(set(nonzero_cols)))
-    row_labels = [CATEGORY_NAMES[row_idx] for row_idx in nonzero_rows]
-    col_labels = [CATEGORY_NAMES[col_idx] for col_idx in nonzero_cols]
+    row_labels = [CATEGORY_NAMES[row_idx].replace(' ', '\n') for row_idx in nonzero_rows]
+    col_labels = [CATEGORY_NAMES[col_idx].replace(' ', '\n') for col_idx in nonzero_cols]
     non_empty_grid = np.ix_(nonzero_rows, nonzero_cols)
 
     # plot
-    plt.rcParams.update({'font.size': 12})
+    plt.rcParams.update({"figure.figsize": (20, 20 * len(row_labels) / len(col_labels))})
+    plt.rcParams.update({'font.size': 300 / max(len(row_labels), len(col_labels))})
     vmin = 0
     vmax = max([np.max(gt_cooccurrences), np.max(pred_cooccurrences_ours), np.max(pred_cooccurrences_baseline)])
-    for cooccurrences, name in zip([gt_cooccurrences, pred_cooccurrences_ours, pred_cooccurrences_baseline],
-            ['gt_cooccurrences.pdf', 'pred_cooccurrences_ours.pdf', 'pred_cooccurrences_baseline.pdf']):
-        sns.heatmap(cooccurrences[non_empty_grid], annot=True, square=True,
+    for cooccurrences, title in zip([gt_cooccurrences, pred_cooccurrences_ours, pred_cooccurrences_baseline],
+            ['Ground Truth Co-Occurrences', 'Predicted Co-Occurrences (Partial VAE)', 'Predicted Co-Occurrences (MAE)']):
+        sns.heatmap(cooccurrences[non_empty_grid], square=True, annot=True,
             xticklabels=col_labels, yticklabels=row_labels, vmin=vmin, vmax=vmax)
-        plt.xticks(rotation=45)
-        plt.yticks(rotation=45)
+        plt.xticks(rotation=60)
+        plt.yticks(rotation=0)
+        plt.xlabel('Object', fontsize=1.25 * plt.rcParams['font.size'])
+        plt.ylabel('Background', fontsize=1.25 * plt.rcParams['font.size'])
         plt.tight_layout()
-        plt.savefig(os.path.join(cooccurrence_folder, name))
+        plt.title(title, fontsize=1.5 * plt.rcParams['font.size'])
+        plt.savefig(os.path.join(cooccurrence_folder, f"{title}.pdf"))
         plt.close('all')
+
+        with open(os.path.join(cooccurrence_folder, f"{title}.npy"), 'wb') as fout:
+            np.save(fout, cooccurrences)
 
     return
 
