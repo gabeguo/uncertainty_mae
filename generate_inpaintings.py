@@ -273,11 +273,11 @@ def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_coo
     # get sparsity
     total_occurrence_matrix = gt_cooccurrences + pred_cooccurrences_ours + pred_cooccurrences_baseline
     nonzero_rows, nonzero_cols = np.nonzero(total_occurrence_matrix)
-    nonzero_rows = list(sorted(set(nonzero_rows)))
-    nonzero_cols = list(sorted(set(nonzero_cols)))
-    row_labels = [CATEGORY_NAMES[row_idx].replace(' ', '\n') for row_idx in nonzero_rows]
-    col_labels = [CATEGORY_NAMES[col_idx].replace(' ', '\n') for col_idx in nonzero_cols]
-    non_empty_grid = np.ix_(nonzero_rows, nonzero_cols)
+    nonzero_rows_no_duplicate = list(sorted(set(nonzero_rows)))
+    nonzero_cols_no_duplicate = list(sorted(set(nonzero_cols)))
+    row_labels = [CATEGORY_NAMES[row_idx].replace(' ', '\n') for row_idx in nonzero_rows_no_duplicate]
+    col_labels = [CATEGORY_NAMES[col_idx].replace(' ', '\n') for col_idx in nonzero_cols_no_duplicate]
+    non_empty_grid = np.ix_(nonzero_rows_no_duplicate, nonzero_cols_no_duplicate)
 
     # plot
     plt.rcParams.update({"figure.figsize": (20, 20 * len(row_labels) / len(col_labels))})
@@ -301,15 +301,31 @@ def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_coo
         with open(os.path.join(cooccurrence_folder, f"{title}.npy"), 'wb') as fout:
             np.save(fout, cooccurrences)
 
-    ours_correlation = stats.pearsonr(x=gt_cooccurrences.flatten(), y=pred_cooccurrences_ours.flatten()).statistic
-    baseline_correlation = stats.pearsonr(x=gt_cooccurrences.flatten(), y=pred_cooccurrences_baseline.flatten()).statistic
+    ours_correlation = stats.pearsonr(
+        x=gt_cooccurrences[nonzero_rows, nonzero_cols].flatten(), 
+        y=pred_cooccurrences_ours[nonzero_rows, nonzero_cols].flatten()
+    ).statistic
+    baseline_correlation = stats.pearsonr(
+        x=gt_cooccurrences[nonzero_rows, nonzero_cols].flatten(), 
+        y=pred_cooccurrences_baseline[nonzero_rows, nonzero_cols].flatten()
+    ).statistic
+
+    assert len(nonzero_rows) == len(nonzero_cols) == len(gt_cooccurrences[nonzero_rows, nonzero_cols].flatten())
+    print('non-zero rows:', len(nonzero_rows))
+    print('non-zero cols:', len(nonzero_cols))
+    print('non-zero entries:', len(gt_cooccurrences[nonzero_rows, nonzero_cols].flatten()))
+    print('non-zero entries:', gt_cooccurrences[nonzero_rows, nonzero_cols].shape)
+    
+    print('Correlations')
+    print('Partial VAE:', ours_correlation)
+    print('MAE:', baseline_correlation)
 
     with open(os.path.join(cooccurrence_folder, 'co-occurrence_matching.json'), 'w') as fout:
         results = {
             'Correlation (GT & Partial VAE)': ours_correlation,
             'Correlation (GT & MAE)': baseline_correlation
         }
-        json.dump(fout, results, indent=4)
+        json.dump(results, fout, indent=4)
 
     return
 
