@@ -5,6 +5,7 @@ import requests
 import random
 import argparse
 from tqdm import tqdm
+import json
 
 import torch
 import numpy as np
@@ -135,7 +136,7 @@ def classify(args, img, classifier):
 
     prediction = classifier(img).squeeze(0).softmax(0)
 
-    plausible_indices = (prediction > args.threshold).nonzero()
+    plausible_indices = (prediction > args.confidence_threshold).nonzero()
     plausible_scores = prediction[plausible_indices]
 
     assert len(plausible_indices) == len(plausible_scores)
@@ -284,8 +285,9 @@ def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_coo
     vmax = max([np.max(gt_cooccurrences), np.max(pred_cooccurrences_ours), np.max(pred_cooccurrences_baseline)])
     for cooccurrences, title in zip([gt_cooccurrences, pred_cooccurrences_ours, pred_cooccurrences_baseline],
             ['Ground Truth Co-Occurrences', 'Predicted Co-Occurrences (Partial VAE)', 'Predicted Co-Occurrences (MAE)']):
-        sns.heatmap(cooccurrences[non_empty_grid], square=True, annot=True,
-            xticklabels=col_labels, yticklabels=row_labels, vmin=vmin, vmax=vmax)
+        to_annotate = max(len(row_labels), len(col_labels)) < args.max_categories_to_annot
+        sns.heatmap(cooccurrences[non_empty_grid], square=True, annot=to_annotate,
+            xticklabels=col_labels if to_annotate else None, yticklabels=row_labels if to_annotate else None, vmin=vmin, vmax=vmax)
         plt.xticks(rotation=60)
         plt.yticks(rotation=0)
         plt.xlabel('Object', fontsize=1.25 * plt.rcParams['font.size'])
@@ -436,6 +438,9 @@ def main(args):
         pred_cooccurrences_ours=pred_cooccurrences_ours,
         pred_cooccurrences_baseline=pred_cooccurrences_baseline)
 
+    with open(os.path.join(args.save_dir, 'settings.json'), 'w') as fout:
+        json.dump(vars(args), fout)
+
     return
 
 def create_args():
@@ -448,7 +453,8 @@ def create_args():
     parser.add_argument('--num_samples', type=int, default=3)
     parser.add_argument('--save_dir', type=str, default='/local/zemel/gzg2104/outputs/08_08_24_cov')
     parser.add_argument('--random_mask', action='store_true')
-    parser.add_argument('--threshold', type=float, default=0.2)
+    parser.add_argument('--confidence_threshold', type=float, default=0.3)
+    parser.add_argument('--max_categories_to_annot', type=int, default=50)
 
     args = parser.parse_args()
 
