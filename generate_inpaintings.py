@@ -288,7 +288,7 @@ def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_coo
         to_annotate = max(len(row_labels), len(col_labels)) < args.max_categories_to_annot
         sns.heatmap(cooccurrences[non_empty_grid], square=True, annot=to_annotate,
             xticklabels=col_labels if to_annotate else None, yticklabels=row_labels if to_annotate else None, vmin=vmin, vmax=vmax)
-        plt.xticks(rotation=60)
+        plt.xticks(rotation=45)
         plt.yticks(rotation=0)
         plt.xlabel('Object', fontsize=1.25 * plt.rcParams['font.size'])
         plt.ylabel('Background', fontsize=1.25 * plt.rcParams['font.size'])
