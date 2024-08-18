@@ -28,6 +28,8 @@ from functools import partial
 from torchvision.models import resnet50, ResNet50_Weights, resnet152, ResNet152_Weights
 from torchvision.models import vit_l_16, ViT_L_16_Weights
 
+import seaborn as sns
+
 torch.hub.set_dir('/local/zemel/gzg2104/pretrained_weights')
 
 CATEGORY_NAMES = ViT_L_16_Weights.IMAGENET1K_SWAG_E2E_V1.meta["categories"]
@@ -206,8 +208,9 @@ def run_one_image(args, img, model, img_idx, classifier, gt_cooccurrences, pred_
 
     # update cooccurrence stats
     for bg_class_id in bg_class_ids:
-        for gt_class_id in gt_class_ids:
-            gt_cooccurrences[bg_class_id, gt_class_id] += 1
+        if gt_object_classes is None: # should only do it once
+            for gt_class_id in gt_class_ids:
+                gt_cooccurrences[bg_class_id, gt_class_id] += 1
         for ip_class_id in ip_class_ids:
             pred_cooccurrences[bg_class_id, ip_class_id] += 1
 
@@ -271,16 +274,29 @@ def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_coo
         np.save(fout, pred_cooccurrences_ours)
     with open(os.path.join(cooccurrence_folder, 'pred_cooccurrences_baseline.npy'), 'wb') as fout:
         np.save(fout, pred_cooccurrences_baseline)
-    
-    plt.matshow(gt_cooccurrences)
-    plt.savefig(os.path.join(cooccurrence_folder, 'gt_cooccurrences.pdf'))
-    plt.close('all')
-    plt.matshow(pred_cooccurrences_ours)
-    plt.savefig(os.path.join(cooccurrence_folder, 'pred_cooccurrences_ours.pdf'))
-    plt.close('all')
-    plt.matshow(pred_cooccurrences_baseline)
-    plt.savefig(os.path.join(cooccurrence_folder, 'pred_cooccurrences_baseline.pdf'))
-    plt.close('all')
+
+    # get sparsity
+    total_occurrence_matrix = gt_cooccurrences + pred_cooccurrences_ours + pred_cooccurrences_baseline
+    nonzero_rows, nonzero_cols = np.nonzero(total_occurrence_matrix)
+    nonzero_rows = list(sorted(set(nonzero_rows)))
+    nonzero_cols = list(sorted(set(nonzero_cols)))
+    row_labels = [CATEGORY_NAMES[row_idx] for row_idx in nonzero_rows]
+    col_labels = [CATEGORY_NAMES[col_idx] for col_idx in nonzero_cols]
+    non_empty_grid = np.ix_(nonzero_rows, nonzero_cols)
+
+    # plot
+    plt.rcParams.update({'font.size': 12})
+    vmin = 0
+    vmax = max([np.max(gt_cooccurrences), np.max(pred_cooccurrences_ours), np.max(pred_cooccurrences_baseline)])
+    for cooccurrences, name in zip([gt_cooccurrences, pred_cooccurrences_ours, pred_cooccurrences_baseline],
+            ['gt_cooccurrences.pdf', 'pred_cooccurrences_ours.pdf', 'pred_cooccurrences_baseline.pdf']):
+        sns.heatmap(cooccurrences[non_empty_grid], annot=True, square=True,
+            xticklabels=col_labels, yticklabels=row_labels, vmin=vmin, vmax=vmax)
+        plt.xticks(rotation=45)
+        plt.yticks(rotation=45)
+        plt.tight_layout()
+        plt.savefig(os.path.join(cooccurrence_folder, name))
+        plt.close('all')
 
     return
 
@@ -398,6 +414,7 @@ def main(args):
         mask_ratio = 1 - keep_indices.shape[1] / ids_shuffle.shape[1]
 
         print('\n\tbaseline')
+        # get the GT only once
         bg_classes, gt_object_classes = run_one_image(args, img, model_mae, 
                 gt_cooccurrences=gt_cooccurrences, pred_cooccurrences=pred_cooccurrences_baseline,
                 mask_ratio=mask_ratio, force_mask=ids_shuffle, img_idx=idx,
