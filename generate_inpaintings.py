@@ -40,6 +40,11 @@ imagenet_mean = 255 * np.array([0.485, 0.456, 0.406])
 imagenet_std = 255 * np.array([0.229, 0.224, 0.225])
 var = 1
 
+BG = 'Background'
+GT_OBJ = 'Ground Truth Object'
+PRED_OBJ_BASELINE = 'Predicted Object by MAE'
+PRED_OBJ_OURS = 'Predicted Object by Partial VAE'
+
 def show_image(image, title='', mean=imagenet_mean, std=imagenet_std):
     # image is [H, W, 3]
     assert image.shape[2] == 3
@@ -149,7 +154,7 @@ def classify(args, img, classifier):
 
     # return class_id, score
 
-def run_one_image(args, img, model, img_idx, classifier, gt_cooccurrences, pred_cooccurrences,
+def run_one_image(args, img, model, img_idx, classifier, gt_cooccurrences, pred_cooccurrences, nonresponses,
                 sample_idx=None, mask_ratio=0.75, force_mask=None, mean=imagenet_mean, std=imagenet_std,
                 add_default_mask=False, bg_classes=None, gt_object_classes=None):
 
@@ -216,6 +221,17 @@ def run_one_image(args, img, model, img_idx, classifier, gt_cooccurrences, pred_
         for ip_class_id in ip_class_ids:
             pred_cooccurrences[bg_class_id, ip_class_id] += 1
 
+    # update non-response stats
+    if bg_classes is None and len(bg_class_ids) == 0:
+        nonresponses[BG] += 1
+    if gt_object_classes is None and len(gt_class_ids) == 0:
+        nonresponses[GT_OBJ] += 1
+    if len(ip_class_ids) == 0:
+        if isinstance(model, UncertaintyMAE):
+            nonresponses[PRED_OBJ_OURS] += 1
+        else:
+            nonresponses[PRED_OBJ_BASELINE] += 1
+
     plt.figure(figsize=(24, 5))
     plt.rcParams.update({'font.size': 22})
     plt.subplot(1, 5, 1)
@@ -266,7 +282,7 @@ def create_checker():
                 c*block_size:(c+1)*block_size] = val
     return img
 
-def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_cooccurrences_baseline):
+def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_cooccurrences_baseline, nonresponses):
     cooccurrence_folder = os.path.join(args.save_dir, 'cooccurrences')
     os.makedirs(cooccurrence_folder, exist_ok=True)
     
@@ -281,7 +297,7 @@ def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_coo
 
     # plot
     plt.rcParams.update({"figure.figsize": (20, 20 * len(row_labels) / len(col_labels))})
-    plt.rcParams.update({'font.size': 300 / max(len(row_labels), len(col_labels))})
+    plt.rcParams.update({'font.size': max(300 / max(len(row_labels), len(col_labels)), 8)})
     vmin = 0
     vmax = max([np.max(gt_cooccurrences), np.max(pred_cooccurrences_ours), np.max(pred_cooccurrences_baseline)])
     for cooccurrences, title in zip([gt_cooccurrences, pred_cooccurrences_ours, pred_cooccurrences_baseline],
@@ -323,6 +339,10 @@ def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_coo
         }
         for metric in baseline_distance:
             results[f"GT vs. Vanilla MAE ({metric})"] = baseline_distance[metric]
+        results[f"Nonresponse Rate ({BG})"] = nonresponses[BG] / args.num_iterations
+        results[f"Nonresponse Rate ({GT_OBJ})"] = nonresponses[GT_OBJ] / args.num_iterations
+        results[f"Nonresponse Rate ({PRED_OBJ_OURS})"] = nonresponses[PRED_OBJ_OURS] / (args.num_iterations * args.num_samples)
+        results[f"Nonresponse Rate ({PRED_OBJ_BASELINE})"] = nonresponses[PRED_OBJ_BASELINE] / args.num_iterations
         json.dump(results, fout, indent=4)
 
     return
@@ -402,11 +422,20 @@ def create_test_loader():
 
     return test_loader
 
-def randomize_mask_layout(mask_layout, mask_ratio=0.75):
-    all_indices = [(i, j) for i in range(mask_layout.shape[0]) for j in range(mask_layout.shape[1])]
-    random.shuffle(all_indices)
-    for i, j in all_indices[:int(mask_ratio * len(all_indices))]:
-        mask_layout[i, j] = 0
+def randomize_mask_layout(mask_layout):
+    rn = random.random()
+    assert 0 <= rn <= 1
+    if 0 <= rn <= 0.2:
+        mask_layout[0:7, 0:7] = 0
+    elif 0.2 < rn <= 0.4:
+        mask_layout[0:7, 7:14] = 0
+    elif 0.4 < rn <= 0.6:
+        mask_layout[7:14, 0:7] = 0
+    elif 0.6 < rn <= 0.8:
+        mask_layout[7:14, 7:14] = 0
+    else:
+        mask_layout[4:11, 3:10] = 0
+
     return
 
 def get_mask_indices(mask_layout):
@@ -457,6 +486,10 @@ def main(args):
     gt_cooccurrences = np.zeros((1000, 1000))
     pred_cooccurrences_ours = np.zeros((1000, 1000))
     pred_cooccurrences_baseline = np.zeros((1000, 1000))
+
+    nonresponses = {
+        BG:0, GT_OBJ:0, PRED_OBJ_OURS:0, PRED_OBJ_BASELINE:0
+    }
         
     print(model_mae)
     for idx, img_dict in tqdm(enumerate(test_loader)):
@@ -469,12 +502,13 @@ def main(args):
         img = img.squeeze()
 
         torch.manual_seed(idx)
-        if args.random_mask:
+        mask_layout = img_dict['token_mask'].to(device=img.device)
+        if args.random_mask \
+                or torch.sum(mask_layout) > (1 - args.min_mask_ratio) * 14 * 14 \
+                or torch.sum(mask_layout) < (1 - args.max_mask_ratio) * 14 * 14:
             mask_layout = torch.ones(14, 14).to(device=img.device)
-            randomize_mask_layout(mask_layout, mask_ratio=0.75)
+            randomize_mask_layout(mask_layout)
             mask_layout = mask_layout.reshape(1, 14, 14)
-        else:
-            mask_layout = img_dict['token_mask'].to(device=img.device)
 
         keep_indices, mask_indices = get_mask_indices(mask_layout)
 
@@ -486,7 +520,7 @@ def main(args):
         bg_classes, gt_object_classes = run_one_image(args, img, model_mae, 
                 gt_cooccurrences=gt_cooccurrences, pred_cooccurrences=pred_cooccurrences_baseline,
                 mask_ratio=mask_ratio, force_mask=ids_shuffle, img_idx=idx,
-                classifier=classifier)
+                classifier=classifier, nonresponses=nonresponses)
         plt.close('all')
 
         print('\n\tours')
@@ -495,14 +529,15 @@ def main(args):
                         gt_cooccurrences=gt_cooccurrences, pred_cooccurrences=pred_cooccurrences_ours,
                         mask_ratio=mask_ratio, force_mask=(keep_indices, mask_indices),
                         mean=imagenet_mean, std=imagenet_std, add_default_mask=add_default_mask, img_idx=idx, sample_idx=j,
-                        classifier=classifier, bg_classes=bg_classes, gt_object_classes=gt_object_classes)
+                        classifier=classifier, bg_classes=bg_classes, gt_object_classes=gt_object_classes, nonresponses=nonresponses)
             plt.close('all')
         if idx == args.num_iterations:
             break
 
     save_cooccurrences(args, gt_cooccurrences=gt_cooccurrences, 
         pred_cooccurrences_ours=pred_cooccurrences_ours,
-        pred_cooccurrences_baseline=pred_cooccurrences_baseline)
+        pred_cooccurrences_baseline=pred_cooccurrences_baseline,
+        nonresponses=nonresponses)
 
     with open(os.path.join(args.save_dir, 'settings.json'), 'w') as fout:
         json.dump(vars(args), fout, indent=4)
@@ -519,6 +554,8 @@ def create_args():
     parser.add_argument('--num_samples', type=int, default=3)
     parser.add_argument('--save_dir', type=str, default='/local/zemel/gzg2104/outputs/08_08_24_cov')
     parser.add_argument('--random_mask', action='store_true')
+    parser.add_argument('--max_mask_ratio', type=float, default=0.7)
+    parser.add_argument('--min_mask_ratio', type=float, default=0.2)
     parser.add_argument('--confidence_threshold', type=float, default=0.3)
     parser.add_argument('--max_categories_to_annot', type=int, default=50)
 
