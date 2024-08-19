@@ -288,7 +288,7 @@ def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_coo
             ['Ground Truth Co-Occurrences', 'Predicted Co-Occurrences (Partial VAE)', 'Predicted Co-Occurrences (MAE)']):
         to_annotate = max(len(row_labels), len(col_labels)) < args.max_categories_to_annot
         sns.heatmap(cooccurrences[non_empty_grid], square=True, annot=to_annotate,
-            xticklabels=col_labels if to_annotate else None, yticklabels=row_labels if to_annotate else None, vmin=vmin, vmax=vmax)
+            xticklabels=col_labels if to_annotate else False, yticklabels=row_labels if to_annotate else False, vmin=vmin, vmax=vmax)
         plt.xticks(rotation=45)
         plt.yticks(rotation=0)
         plt.xlabel('Object', fontsize=1.25 * plt.rcParams['font.size'])
@@ -301,14 +301,10 @@ def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_coo
         with open(os.path.join(cooccurrence_folder, f"{title}.npy"), 'wb') as fout:
             np.save(fout, cooccurrences)
 
-    ours_correlation = stats.pearsonr(
-        x=gt_cooccurrences[nonzero_rows, nonzero_cols].flatten(), 
-        y=pred_cooccurrences_ours[nonzero_rows, nonzero_cols].flatten()
-    ).statistic
-    baseline_correlation = stats.pearsonr(
-        x=gt_cooccurrences[nonzero_rows, nonzero_cols].flatten(), 
-        y=pred_cooccurrences_baseline[nonzero_rows, nonzero_cols].flatten()
-    ).statistic
+    ours_distance = calculate_distance(gt=gt_cooccurrences[nonzero_rows, nonzero_cols], 
+                                    pred=pred_cooccurrences_ours[nonzero_rows, nonzero_cols])
+    baseline_distance = calculate_distance(gt=gt_cooccurrences[nonzero_rows, nonzero_cols], 
+                                    pred=pred_cooccurrences_baseline[nonzero_rows, nonzero_cols])
 
     assert len(nonzero_rows) == len(nonzero_cols) == len(gt_cooccurrences[nonzero_rows, nonzero_cols].flatten())
     print('non-zero rows:', len(nonzero_rows))
@@ -316,18 +312,54 @@ def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_coo
     print('non-zero entries:', len(gt_cooccurrences[nonzero_rows, nonzero_cols].flatten()))
     print('non-zero entries:', gt_cooccurrences[nonzero_rows, nonzero_cols].shape)
     
-    print('Correlations')
-    print('Partial VAE:', ours_correlation)
-    print('MAE:', baseline_correlation)
+    print('Distances')
+    print('Partial VAE:', ours_distance)
+    print('MAE:', baseline_distance)
 
     with open(os.path.join(cooccurrence_folder, 'co-occurrence_matching.json'), 'w') as fout:
         results = {
-            'Correlation (GT & Partial VAE)': ours_correlation,
-            'Correlation (GT & MAE)': baseline_correlation
+            f"GT vs. Partial VAE ({metric})":ours_distance[metric] for metric in ours_distance
         }
+        for metric in baseline_distance:
+            results[f"GT vs. Vanilla MAE ({metric})"] = baseline_distance[metric]
         json.dump(results, fout, indent=4)
 
     return
+
+def calculate_distance(gt, pred):
+    """
+    For each background class (i.e., row), standardizes the co-occurrences to sum to 1 (like prob distribution)
+    Then calculates some simliarity metrics
+    """
+    cosine_sim = calculate_avg_cosine_sim(gt, pred)
+    l1_distance = calculate_avg_l1_distance(gt, pred)
+    return {
+        'Cosine Similarity':cosine_sim,
+        'L1 Distance':l1_distance
+    }
+
+def calculate_avg_cosine_sim(gt, pred):
+    assert gt.shape == pred.shape
+    all_cosine_sims = list()
+    for r in range(gt.shape[0]):
+        if np.sum(gt[r]) > 0 and np.sum(pred[r]) > 0:
+            curr_cosine_sim = np.dot(gt[r], pred[r]) / (np.linalg.norm(gt[r]) * np.linalg.norm(pred[r]))
+        else:
+            curr_cosine_sim = 0
+        assert 0 <= curr_cosine_sim <= 1, f"{curr_cosine_sim}"
+        all_cosine_sims.append(curr_cosine_sim)
+    return np.mean(all_cosine_sims)
+
+def calculate_avg_l1_distance(gt, pred):
+    assert gt.shape == pred.shape
+    all_l1_distances = list()
+    for r in range(gt.shape[0]):
+        gt_scaled = gt[r] / np.sum(gt[r]) if np.sum(gt[r]) > 0 else gt[r]
+        pred_scaled = pred[r] / np.sum(pred[r]) if np.sum(pred[r]) > 0 else pred[r]
+        curr_l1_distance = np.abs(gt[r] - pred[r])
+        assert 0 <= curr_l1_distance <= 1, f"{curr_l1_distance}"
+        all_l1_distances.append(curr_l1_distance)
+    return np.mean(all_l1_distances)
 
 def load_decoder_state_dict(model, chkpt_dir):
     state_dict = torch.load(chkpt_dir)['model']
