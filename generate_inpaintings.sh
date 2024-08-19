@@ -6,5 +6,5 @@ python generate_inpaintings.py \
     --save_dir /local/zemel/gzg2104/outputs/08_19_24_500Samples \
     --confidence_threshold 0.2 \
     --max_categories_to_annot 50 \
-    --max_mask_ratio 0.7 \
-    --min_mask_ratio 0.1
+    --max_mask_ratio 0.6 \
+    --min_mask_ratio 0.2
