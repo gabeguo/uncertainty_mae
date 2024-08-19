@@ -1,13 +1,12 @@
 python main_linprobe.py \
     --model vit_base_patch16 \
-    --finetune /local/zemel/gzg2104/_coco_models/07_17_24/beta30/checkpoint-399.pth \
-    --dataset_name cifar \
+    --finetune /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-600.pth \
+    --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
-    --nb_classes 100 \
-    --output_dir /local/zemel/gzg2104/_coco_models/07_17_24/beta30/linprobe_INVISIBLE \
-    --batch_size 1024 \
+    --nb_classes 1000 \
+    --output_dir /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/imagenet_linprobe/600 \
+    --batch_size 4096 \
     --log_dir /local/zemel/gzg2104/logs \
-    --wandb_project linprobe_cifar \
+    --wandb_project linprobe_imagenet \
     --device cuda \
-    --invisible_mae \
     --master_port 12358
