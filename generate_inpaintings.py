@@ -301,10 +301,10 @@ def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_coo
         with open(os.path.join(cooccurrence_folder, f"{title}.npy"), 'wb') as fout:
             np.save(fout, cooccurrences)
 
-    ours_distance = calculate_distance(gt=gt_cooccurrences[nonzero_rows, nonzero_cols], 
-                                    pred=pred_cooccurrences_ours[nonzero_rows, nonzero_cols])
-    baseline_distance = calculate_distance(gt=gt_cooccurrences[nonzero_rows, nonzero_cols], 
-                                    pred=pred_cooccurrences_baseline[nonzero_rows, nonzero_cols])
+    ours_distance = calculate_distance(gt=gt_cooccurrences[non_empty_grid], 
+                                    pred=pred_cooccurrences_ours[non_empty_grid])
+    baseline_distance = calculate_distance(gt=gt_cooccurrences[non_empty_grid], 
+                                    pred=pred_cooccurrences_baseline[non_empty_grid])
 
     assert len(nonzero_rows) == len(nonzero_cols) == len(gt_cooccurrences[nonzero_rows, nonzero_cols].flatten())
     print('non-zero rows:', len(nonzero_rows))
@@ -353,10 +353,16 @@ def calculate_avg_cosine_sim(gt, pred):
 def calculate_avg_l1_distance(gt, pred):
     assert gt.shape == pred.shape
     all_l1_distances = list()
+    # print("gt:", gt)
+    # print("pred:", pred)
     for r in range(gt.shape[0]):
+        # print(f"gt[{r}]", gt[r])
+        # print(f"pred[{r}]", pred[r])
         gt_scaled = gt[r] / np.sum(gt[r]) if np.sum(gt[r]) > 0 else gt[r]
         pred_scaled = pred[r] / np.sum(pred[r]) if np.sum(pred[r]) > 0 else pred[r]
-        curr_l1_distance = np.abs(gt[r] - pred[r])
+        # print('gt_scaled', gt_scaled)
+        # print('pred_scaled', pred_scaled)
+        curr_l1_distance = np.mean(np.abs(gt[r] - pred[r]))
         assert 0 <= curr_l1_distance <= 1, f"{curr_l1_distance}"
         all_l1_distances.append(curr_l1_distance)
     return np.mean(all_l1_distances)
