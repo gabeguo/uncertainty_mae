@@ -277,7 +277,7 @@ def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_coo
     nonzero_cols_no_duplicate = list(sorted(set(nonzero_cols)))
     row_labels = [CATEGORY_NAMES[row_idx].replace(' ', '\n') for row_idx in nonzero_rows_no_duplicate]
     col_labels = [CATEGORY_NAMES[col_idx].replace(' ', '\n') for col_idx in nonzero_cols_no_duplicate]
-    non_empty_grid = np.ix_(nonzero_rows_no_duplicate, nonzero_cols_no_duplicate)
+    non_empty_grid = np.ix_(nonzero_rows_no_duplicate, nonzero_cols_no_duplicate) # this allows us to grid index
 
     # plot
     plt.rcParams.update({"figure.figsize": (20, 20 * len(row_labels) / len(col_labels))})
@@ -301,6 +301,7 @@ def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_coo
         with open(os.path.join(cooccurrence_folder, f"{title}.npy"), 'wb') as fout:
             np.save(fout, cooccurrences)
 
+    # use non-empty-grid for grid indexing!
     ours_distance = calculate_distance(gt=gt_cooccurrences[non_empty_grid], 
                                     pred=pred_cooccurrences_ours[non_empty_grid])
     baseline_distance = calculate_distance(gt=gt_cooccurrences[non_empty_grid], 
