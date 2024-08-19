@@ -1,10 +1,10 @@
 python main_linprobe.py \
     --model vit_base_patch16 \
-    --finetune /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-600.pth \
+    --finetune /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-400.pth \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
     --nb_classes 1000 \
-    --output_dir /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/imagenet_linprobe/600 \
+    --output_dir /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/imagenet_linprobe/400 \
     --batch_size 4096 \
     --log_dir /local/zemel/gzg2104/logs \
     --wandb_project linprobe_imagenet \
