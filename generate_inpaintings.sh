@@ -1,9 +1,9 @@
 python generate_inpaintings.py \
     --uncertainty_weights /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-600.pth \
     --baseline_weights /home/gzg2104/uncertainty_mae/mae_visualize_vit_base.pth \
-    --num_iterations 500 \
+    --num_iterations 5000 \
     --num_samples 3 \
-    --save_dir /local/zemel/gzg2104/outputs/08_19_24_500Samples \
+    --save_dir /local/zemel/gzg2104/outputs/08_19_24_5000Samples \
     --confidence_threshold 0.2 \
     --max_categories_to_annot 50 \
     --max_mask_ratio 0.6 \
