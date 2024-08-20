@@ -10,6 +10,8 @@ from tqdm import tqdm
 import argparse
 
 import seaborn as sns
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm, Normalize
 
 CATEGORIES = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT.meta["categories"]
 
@@ -38,8 +40,8 @@ def process_image(args, img_path, model):
     output_path = os.path.join(curr_output_dir, os.path.basename(img_path))
     im.save(output_path)
 
-    print(labels)
-    print(label_nums)
+    # print(labels)
+    # print(label_nums)
 
     return [value.item() for value in label_nums]
 
@@ -48,9 +50,9 @@ def calc_co_occurrence(args, dir, model):
     for img_name in tqdm(os.listdir(dir)):
         img_path = os.path.join(dir, img_name)
         label_nums = process_image(args, img_path=os.path.join(dir, img_name), model=model)
-        print(label_nums)
-        for i in range(len(label_nums)):
-            for j in range(len(label_nums)):
+        # print(label_nums)
+        for i in label_nums:
+            for j in label_nums:
                 co_occurrence[i, j] += 1
     return co_occurrence
 
@@ -61,9 +63,10 @@ def save_co_occurrence(args, co_occurrence, name):
         np.save(fout, co_occurrence)
     
     # save visual
-    sns.heatmap(co_occurrence, square=True, annot=True,
-        xticklabels=CATEGORIES, yticklabels=CATEGORIES)
-    plt.xticks(rotation=45)
+    plt.rcParams['font.size'] = 5
+    sns.heatmap(co_occurrence, square=True, annot=False,
+        xticklabels=CATEGORIES, yticklabels=CATEGORIES, norm=LogNorm())
+    plt.xticks(rotation=90)
     plt.yticks(rotation=0)
     plt.xlabel('Object', fontsize=1.25 * plt.rcParams['font.size'])
     plt.ylabel('Object', fontsize=1.25 * plt.rcParams['font.size'])
