@@ -34,16 +34,9 @@ import seaborn as sns
 
 torch.hub.set_dir('/local/zemel/gzg2104/pretrained_weights')
 
-CATEGORY_NAMES = ViT_L_16_Weights.IMAGENET1K_SWAG_E2E_V1.meta["categories"]
-
 imagenet_mean = 255 * np.array([0.485, 0.456, 0.406])
 imagenet_std = 255 * np.array([0.229, 0.224, 0.225])
 var = 1
-
-BG = 'Background'
-GT_OBJ = 'Ground Truth Object'
-PRED_OBJ_BASELINE = 'Predicted Object by MAE'
-PRED_OBJ_OURS = 'Predicted Object by Partial VAE'
 
 def show_image(image, title='', mean=imagenet_mean, std=imagenet_std):
     # image is [H, W, 3]
@@ -104,59 +97,9 @@ def prepare_uncertainty_model(chkpt_dir, arch='mae_vit_base_patch16', same_encod
 
     return model
 
-def find_infill_portion(reconstruction, mask):
-    assert len(reconstruction.shape) == 4, f"{reconstruction.shape}"
-    assert reconstruction.shape == mask.shape, f"{reconstruction.shape}, {mask.shape}"
-    assert reconstruction.shape[3] == 3, f"{reconstruction.shape}"
-    assert mask.shape[0] == 1, f"{mask.shape}"
-
-    mask = mask[0] # we only have one
-    compressed_mask = torch.sum(mask, dim=2) # get rid of channels
-    assert compressed_mask.shape == reconstruction.shape[1:3] # should just be h, w
-    rows_filled = torch.sum(compressed_mask, dim=1).nonzero()
-    cols_filled = torch.sum(compressed_mask, dim=0).nonzero()
-
-    if rows_filled.numel() == 0 or cols_filled.numel() == 0:
-        return mask
-
-    r_min = torch.min(rows_filled)
-    r_max = torch.max(rows_filled)
-    c_min = torch.min(cols_filled)
-    c_max = torch.max(cols_filled)
-
-    orig_shape = reconstruction.shape[1:3]
-    reconstruction = reconstruction[0]
-    reconstructed_portion = reconstruction[r_min:r_max, c_min:c_max]
-    reconstructed_portion = torch.permute(reconstructed_portion, (2, 0, 1))
-    assert reconstructed_portion.shape[0] == 3
-    reconstructed_portion = torchvision.transforms.functional.resize(reconstructed_portion, orig_shape)
-    reconstructed_portion = torch.permute(reconstructed_portion, (1, 2, 0))
-    assert reconstructed_portion.shape[2] == 3
-
-    return reconstructed_portion
-
-def classify(args, img, classifier):
-    img = torch.einsum('nhwc->nchw', img)
-    img = img.cuda()
-    img = torchvision.transforms.functional.resize(img.squeeze(0), size=(512, 512)).unsqueeze(0)
-
-    prediction = classifier(img).squeeze(0).softmax(0)
-
-    plausible_indices = (prediction > args.confidence_threshold).nonzero()
-    plausible_scores = prediction[plausible_indices]
-
-    assert len(plausible_indices) == len(plausible_scores)
-
-    return plausible_indices, plausible_scores
-
-    # class_id = prediction.argmax().item()
-    # score = prediction[class_id].item()
-
-    # return class_id, score
-
-def run_one_image(args, img, model, img_idx, classifier, gt_cooccurrences, pred_cooccurrences, nonresponses,
+def run_one_image(args, img, model, img_idx,
                 sample_idx=None, mask_ratio=0.75, force_mask=None, mean=imagenet_mean, std=imagenet_std,
-                add_default_mask=False, bg_classes=None, gt_object_classes=None):
+                add_default_mask=True):
 
     x = torch.tensor(img)
 
@@ -192,45 +135,6 @@ def run_one_image(args, img, model, img_idx, classifier, gt_cooccurrences, pred_
     im_paste = x * (1 - mask) + y * mask
     # infilled portion, actual size
     im_infill = y * mask
-    # infilled portion only, resized to square
-    im_infill_square = find_infill_portion(y, mask)
-
-    # classify background, GT object, inpainted object
-    bg_class_ids, bg_scores = bg_classes if bg_classes is not None else \
-        classify(args, img=im_masked, classifier=classifier)
-    print(f"\n\tbackground prediction:")
-    for bg_class_id, bg_score in zip(bg_class_ids, bg_scores):
-        print(f"\t\t{CATEGORY_NAMES[bg_class_id.item()]}; {bg_score.item():.3f}")
-
-    gt_class_ids, gt_scores = gt_object_classes if gt_object_classes is not None else \
-        classify(args, img=x*mask, classifier=classifier)
-    print(f"\tgt object prediction:")
-    for gt_class_id, gt_score in zip(gt_class_ids, gt_scores):
-        print(f"\t\t{CATEGORY_NAMES[gt_class_id.item()]}; {gt_score.item():.3f}")
-    
-    ip_class_ids, ip_scores = classify(args, img=im_infill, classifier=classifier)
-    print(f"\tinfill prediction:")
-    for ip_class_id, ip_score in zip(ip_class_ids, ip_scores):
-        print(f"\t\t{CATEGORY_NAMES[ip_class_id.item()]}; {ip_score.item():.3f}")
-
-    # update cooccurrence stats
-    for bg_class_id in bg_class_ids:
-        if gt_object_classes is None: # should only do it once
-            for gt_class_id in gt_class_ids:
-                gt_cooccurrences[bg_class_id, gt_class_id] += 1
-        for ip_class_id in ip_class_ids:
-            pred_cooccurrences[bg_class_id, ip_class_id] += 1
-
-    # update non-response stats
-    if bg_classes is None and len(bg_class_ids) == 0:
-        nonresponses[BG] += 1
-    if gt_object_classes is None and len(gt_class_ids) == 0:
-        nonresponses[GT_OBJ] += 1
-    if len(ip_class_ids) == 0:
-        if isinstance(model, UncertaintyMAE):
-            nonresponses[PRED_OBJ_OURS] += 1
-        else:
-            nonresponses[PRED_OBJ_BASELINE] += 1
 
     plt.figure(figsize=(24, 5))
     plt.rcParams.update({'font.size': 22})
@@ -242,31 +146,32 @@ def run_one_image(args, img, model, img_idx, classifier, gt_cooccurrences, pred_
     show_image(y[0], "reconstruction", mean=mean, std=std)
     plt.subplot(1, 5, 4)
     show_image(im_infill[0], "infilled", mean=mean, std=std)
-    # plt.subplot(1, 6, 5)
-    # show_image(im_infill_square, "infilled (resized)", mean=mean, std=std)
     plt.subplot(1, 5, 5)
     show_image(im_paste[0], "reconstruction + visible", mean=mean, std=std)
 
-    save_path = os.path.join(args.save_dir, 
+    save_path = os.path.join(get_img_dir(args), 
             f"{img_idx}_{'v' if sample_idx is None else sample_idx}.png")
     plt.tight_layout()
     plt.savefig(save_path)
     plt.clf()
 
+    # save inpainted
     plt.figure(figsize=(6, 6))
-    show_image(im_infill[0], "", mean=mean, std=std)
-    padded_inpaint_save_path = os.path.join(get_inpaint_dir(args), 
-            f"{img_idx}_{'v' if sample_idx is None else sample_idx}_padded.png")
+    show_image(im_paste[0], "", mean=mean, std=std)
+    padded_inpaint_save_path = os.path.join(
+        get_inpaint_ours_dir(args) if isinstance(model, UncertaintyMAE) else get_inpaint_baseline_dir(args), 
+        f"{img_idx}_{'v' if sample_idx is None else sample_idx}_inpainted.png")
     plt.tight_layout(pad=0)
     plt.savefig(padded_inpaint_save_path)
-    show_image(im_infill_square, "", mean=mean, std=std)
-    square_save_path = os.path.join(get_inpaint_dir(args), 
-            f"{img_idx}_{'v' if sample_idx is None else sample_idx}_square.png")
-    plt.tight_layout(pad=0)
-    plt.savefig(square_save_path)
+    # save original
+    if not isinstance(model, UncertaintyMAE):
+        show_image(x[0], "", mean=mean, std=std)
+        orig_save_path = os.path.join(get_gt_dir(args), f"{img_idx}_gt_image.png")
+        plt.tight_layout(pad=0)
+        plt.savefig(orig_save_path)
     plt.close('all')
 
-    return (bg_class_ids, bg_scores), (gt_class_ids, gt_scores)
+    return
 
 def create_checker():
     img = torch.zeros(1, 3, 224, 224)
@@ -281,112 +186,6 @@ def create_checker():
                 r*block_size:(r+1)*block_size, 
                 c*block_size:(c+1)*block_size] = val
     return img
-
-def save_cooccurrences(args, gt_cooccurrences, pred_cooccurrences_ours, pred_cooccurrences_baseline, nonresponses):
-    cooccurrence_folder = os.path.join(args.save_dir, 'cooccurrences')
-    os.makedirs(cooccurrence_folder, exist_ok=True)
-    
-    # get sparsity
-    total_occurrence_matrix = gt_cooccurrences + pred_cooccurrences_ours + pred_cooccurrences_baseline
-    nonzero_rows, nonzero_cols = np.nonzero(total_occurrence_matrix)
-    nonzero_rows_no_duplicate = list(sorted(set(nonzero_rows)))
-    nonzero_cols_no_duplicate = list(sorted(set(nonzero_cols)))
-    row_labels = [CATEGORY_NAMES[row_idx].replace(' ', '\n') for row_idx in nonzero_rows_no_duplicate]
-    col_labels = [CATEGORY_NAMES[col_idx].replace(' ', '\n') for col_idx in nonzero_cols_no_duplicate]
-    non_empty_grid = np.ix_(nonzero_rows_no_duplicate, nonzero_cols_no_duplicate) # this allows us to grid index
-
-    # plot
-    plt.rcParams.update({"figure.figsize": (20, 20 * len(row_labels) / len(col_labels))})
-    plt.rcParams.update({'font.size': max(300 / max(len(row_labels), len(col_labels)), 8)})
-    vmin = 0
-    vmax = max([np.max(gt_cooccurrences), np.max(pred_cooccurrences_ours), np.max(pred_cooccurrences_baseline)])
-    for cooccurrences, title in zip([gt_cooccurrences, pred_cooccurrences_ours, pred_cooccurrences_baseline],
-            ['Ground Truth Co-Occurrences', 'Predicted Co-Occurrences (Partial VAE)', 'Predicted Co-Occurrences (MAE)']):
-        to_annotate = max(len(row_labels), len(col_labels)) < args.max_categories_to_annot
-        sns.heatmap(cooccurrences[non_empty_grid], square=True, annot=to_annotate,
-            xticklabels=col_labels if to_annotate else False, yticklabels=row_labels if to_annotate else False, vmin=vmin, vmax=vmax)
-        plt.xticks(rotation=45)
-        plt.yticks(rotation=0)
-        plt.xlabel('Object', fontsize=1.25 * plt.rcParams['font.size'])
-        plt.ylabel('Background', fontsize=1.25 * plt.rcParams['font.size'])
-        plt.tight_layout()
-        plt.title(title, fontsize=1.5 * plt.rcParams['font.size'])
-        plt.savefig(os.path.join(cooccurrence_folder, f"{title}.pdf"))
-        plt.close('all')
-
-        with open(os.path.join(cooccurrence_folder, f"{title}.npy"), 'wb') as fout:
-            np.save(fout, cooccurrences)
-
-    # use non-empty-grid for grid indexing!
-    ours_distance = calculate_distance(gt=gt_cooccurrences[non_empty_grid], 
-                                    pred=pred_cooccurrences_ours[non_empty_grid])
-    baseline_distance = calculate_distance(gt=gt_cooccurrences[non_empty_grid], 
-                                    pred=pred_cooccurrences_baseline[non_empty_grid])
-
-    assert len(nonzero_rows) == len(nonzero_cols) == len(gt_cooccurrences[nonzero_rows, nonzero_cols].flatten())
-    print('non-zero rows:', len(nonzero_rows))
-    print('non-zero cols:', len(nonzero_cols))
-    print('non-zero entries:', len(gt_cooccurrences[nonzero_rows, nonzero_cols].flatten()))
-    print('non-zero entries:', gt_cooccurrences[nonzero_rows, nonzero_cols].shape)
-    
-    print('Distances')
-    print('Partial VAE:', ours_distance)
-    print('MAE:', baseline_distance)
-
-    with open(os.path.join(cooccurrence_folder, 'co-occurrence_matching.json'), 'w') as fout:
-        results = {
-            f"GT vs. Partial VAE ({metric})":ours_distance[metric] for metric in ours_distance
-        }
-        for metric in baseline_distance:
-            results[f"GT vs. Vanilla MAE ({metric})"] = baseline_distance[metric]
-        results[f"Nonresponse Rate ({BG})"] = nonresponses[BG] / args.num_iterations
-        results[f"Nonresponse Rate ({GT_OBJ})"] = nonresponses[GT_OBJ] / args.num_iterations
-        results[f"Nonresponse Rate ({PRED_OBJ_OURS})"] = nonresponses[PRED_OBJ_OURS] / (args.num_iterations * args.num_samples)
-        results[f"Nonresponse Rate ({PRED_OBJ_BASELINE})"] = nonresponses[PRED_OBJ_BASELINE] / args.num_iterations
-        json.dump(results, fout, indent=4)
-
-    return
-
-def calculate_distance(gt, pred):
-    """
-    For each background class (i.e., row), standardizes the co-occurrences to sum to 1 (like prob distribution)
-    Then calculates some simliarity metrics
-    """
-    cosine_sim = calculate_avg_cosine_sim(gt, pred)
-    l1_distance = calculate_avg_l1_distance(gt, pred)
-    return {
-        'Cosine Similarity':cosine_sim,
-        'L1 Distance':l1_distance
-    }
-
-def calculate_avg_cosine_sim(gt, pred):
-    assert gt.shape == pred.shape
-    all_cosine_sims = list()
-    for r in range(gt.shape[0]):
-        if np.sum(gt[r]) > 0 and np.sum(pred[r]) > 0:
-            curr_cosine_sim = np.dot(gt[r], pred[r]) / (np.linalg.norm(gt[r]) * np.linalg.norm(pred[r]))
-        else:
-            curr_cosine_sim = 0
-        assert 0 <= curr_cosine_sim <= 1, f"{curr_cosine_sim}"
-        all_cosine_sims.append(curr_cosine_sim)
-    return np.mean(all_cosine_sims)
-
-def calculate_avg_l1_distance(gt, pred):
-    assert gt.shape == pred.shape
-    all_l1_distances = list()
-    # print("gt:", gt)
-    # print("pred:", pred)
-    for r in range(gt.shape[0]):
-        # print(f"gt[{r}]", gt[r])
-        # print(f"pred[{r}]", pred[r])
-        gt_scaled = gt[r] / np.sum(gt[r]) if np.sum(gt[r]) > 0 else gt[r]
-        pred_scaled = pred[r] / np.sum(pred[r]) if np.sum(pred[r]) > 0 else pred[r]
-        # print('gt_scaled', gt_scaled)
-        # print('pred_scaled', pred_scaled)
-        curr_l1_distance = np.mean(np.abs(gt[r] - pred[r]))
-        assert 0 <= curr_l1_distance <= 1, f"{curr_l1_distance}"
-        all_l1_distances.append(curr_l1_distance)
-    return np.mean(all_l1_distances)
 
 def load_decoder_state_dict(model, chkpt_dir):
     state_dict = torch.load(chkpt_dir)['model']
@@ -454,13 +253,28 @@ def get_mask_indices(mask_layout):
 
     return keep_indices, mask_indices
 
-def get_inpaint_dir(args):
-    return os.path.join(args.save_dir, 'inpaints')
+def get_img_dir(args):
+    return os.path.join(args.save_dir, 'images')
+
+def get_inpaint_ours_dir(args):
+    return os.path.join(args.save_dir, 'inpaint_ours')
+
+def get_inpaint_baseline_dir(args):
+    return os.path.join(args.save_dir, 'inpaint_baseline')
+
+def get_gt_dir(args):
+    return os.path.join(args.save_dir, 'gt')
 
 def main(args):
     os.makedirs(args.save_dir, exist_ok=True)
-    inpaint_dir = get_inpaint_dir(args)
-    os.makedirs(inpaint_dir, exist_ok=True)
+    img_dir = get_img_dir(args)
+    inpaint_ours_dir = get_inpaint_ours_dir(args)
+    inpaint_baseline_dir = get_inpaint_baseline_dir(args)
+    gt_dir = get_gt_dir(args)
+    os.makedirs(img_dir, exist_ok=True)
+    os.makedirs(inpaint_ours_dir, exist_ok=True)
+    os.makedirs(inpaint_baseline_dir, exist_ok=True)
+    os.makedirs(gt_dir, exist_ok=True)
 
     test_loader = create_test_loader()
 
@@ -475,21 +289,7 @@ def main(args):
     uncertainty_model_mae = uncertainty_model_mae.cuda()
     uncertainty_model_mae.eval()
 
-    # Using pretrained weights:
-    classifier = vit_l_16(weights=ViT_L_16_Weights.IMAGENET1K_SWAG_E2E_V1)
-    classifier = classifier.cuda()
-    classifier.eval()
-
     add_default_mask=True
-
-    # idx 0 is background, idx 1 is masked part
-    gt_cooccurrences = np.zeros((1000, 1000))
-    pred_cooccurrences_ours = np.zeros((1000, 1000))
-    pred_cooccurrences_baseline = np.zeros((1000, 1000))
-
-    nonresponses = {
-        BG:0, GT_OBJ:0, PRED_OBJ_OURS:0, PRED_OBJ_BASELINE:0
-    }
         
     print(model_mae)
     args.num_iterations = min(args.num_iterations, len(test_loader))
@@ -516,29 +316,19 @@ def main(args):
         ids_shuffle = torch.cat((keep_indices, mask_indices), dim=1)
         mask_ratio = 1 - keep_indices.shape[1] / ids_shuffle.shape[1]
 
-        print('\n\tbaseline')
         # get the GT only once
-        bg_classes, gt_object_classes = run_one_image(args, img, model_mae, 
-                gt_cooccurrences=gt_cooccurrences, pred_cooccurrences=pred_cooccurrences_baseline,
-                mask_ratio=mask_ratio, force_mask=ids_shuffle, img_idx=idx,
-                classifier=classifier, nonresponses=nonresponses)
+        run_one_image(args, img, model_mae, 
+                mask_ratio=mask_ratio, force_mask=ids_shuffle, img_idx=idx)
         plt.close('all')
 
-        print('\n\tours')
         for j in range(args.num_samples):
             run_one_image(args, img, uncertainty_model_mae, 
-                        gt_cooccurrences=gt_cooccurrences, pred_cooccurrences=pred_cooccurrences_ours,
                         mask_ratio=mask_ratio, force_mask=(keep_indices, mask_indices),
-                        mean=imagenet_mean, std=imagenet_std, add_default_mask=add_default_mask, img_idx=idx, sample_idx=j,
-                        classifier=classifier, bg_classes=bg_classes, gt_object_classes=gt_object_classes, nonresponses=nonresponses)
+                        mean=imagenet_mean, std=imagenet_std, add_default_mask=add_default_mask, img_idx=idx, sample_idx=j
+            )
             plt.close('all')
         if idx == args.num_iterations:
             break
-
-    save_cooccurrences(args, gt_cooccurrences=gt_cooccurrences, 
-        pred_cooccurrences_ours=pred_cooccurrences_ours,
-        pred_cooccurrences_baseline=pred_cooccurrences_baseline,
-        nonresponses=nonresponses)
 
     with open(os.path.join(args.save_dir, 'settings.json'), 'w') as fout:
         json.dump(vars(args), fout, indent=4)
@@ -557,8 +347,6 @@ def create_args():
     parser.add_argument('--random_mask', action='store_true')
     parser.add_argument('--max_mask_ratio', type=float, default=0.7)
     parser.add_argument('--min_mask_ratio', type=float, default=0.2)
-    parser.add_argument('--confidence_threshold', type=float, default=0.3)
-    parser.add_argument('--max_categories_to_annot', type=int, default=50)
 
     args = parser.parse_args()
 
