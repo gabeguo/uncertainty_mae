@@ -294,7 +294,7 @@ def main(args):
     print(model_mae)
     args.num_iterations = min(args.num_iterations, len(test_loader))
     for idx, img_dict in tqdm(enumerate(test_loader)):
-        print(f"img: {idx}")
+        #print(f"img: {idx}")
         plt.rcParams['figure.figsize'] = [5, 5]
         img = img_dict['image']
 
