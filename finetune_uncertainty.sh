@@ -4,11 +4,12 @@ python main_finetune.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
     --nb_classes 1000 \
-    --output_dir /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/imagenet_finetune/600 \
-    --batch_size 256 \
+    --output_dir /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/maskedImage_finetune/600 \
+    --batch_size 512 \
     --accum_iter 1 \
     --log_dir /local/zemel/gzg2104/logs \
     --wandb_project linprobe_imagenet \
     --device cuda \
     --num_workers 8 \
-    --master_port 12354
+    --master_port 12356 \
+    --keep_ratio 0.25

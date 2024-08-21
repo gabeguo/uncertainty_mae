@@ -132,6 +132,10 @@ def get_args_parser():
     parser.add_argument('--cls_token', action='store_false', dest='global_pool',
                         help='Use class token instead of global pool for classification')
 
+    # Evaluation Setting
+    parser.add_argument('--keep_ratio', default=None, type=float,
+                        help='Do we do partial image classification (where we only use some of image tokens)?')
+
     # Dataset parameters
     parser.add_argument('--data_path', default='/datasets01/imagenet_full_size/061417/', type=str,
                         help='dataset path')
@@ -279,6 +283,7 @@ def main(rank, args, world_size):
         drop_path_rate=args.drop_path,
         global_pool=args.global_pool,
     )
+    model.keep_ratio = args.keep_ratio
 
     if args.finetune and not args.eval:
         checkpoint = torch.load(args.finetune, map_location='cpu')
