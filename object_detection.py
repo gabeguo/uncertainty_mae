@@ -63,7 +63,7 @@ def save_co_occurrence(args, co_occurrence, name):
         np.save(fout, co_occurrence)
     
     # save visual
-    plt.rcParams['font.size'] = 5
+    plt.rcParams['font.size'] = 3.5
     sns.heatmap(co_occurrence, square=True, annot=False,
         xticklabels=CATEGORIES, yticklabels=CATEGORIES, norm=LogNorm())
     plt.xticks(rotation=90)
