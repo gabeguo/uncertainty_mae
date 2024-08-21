@@ -5,4 +5,5 @@ python generate_inpaintings.py \
     --num_samples 2 \
     --save_dir /local/zemel/gzg2104/outputs/08_21_24/inpaintings \
     --max_mask_ratio 0.6 \
-    --min_mask_ratio 0.2
+    --min_mask_ratio 0.2 \
+    --start_from 2593

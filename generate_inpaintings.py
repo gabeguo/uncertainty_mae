@@ -294,6 +294,8 @@ def main(args):
     print(model_mae)
     args.num_iterations = min(args.num_iterations, len(test_loader))
     for idx, img_dict in tqdm(enumerate(test_loader)):
+        if idx < args.start_from:
+            continue
         #print(f"img: {idx}")
         plt.rcParams['figure.figsize'] = [5, 5]
         img = img_dict['image']
@@ -347,6 +349,7 @@ def create_args():
     parser.add_argument('--random_mask', action='store_true')
     parser.add_argument('--max_mask_ratio', type=float, default=0.7)
     parser.add_argument('--min_mask_ratio', type=float, default=0.2)
+    parser.add_argument('--start_from', type=int, default=0)
 
     args = parser.parse_args()
 
