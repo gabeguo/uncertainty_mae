@@ -1,12 +1,12 @@
 python main_linprobe.py \
     --model vit_base_patch16 \
-    --finetune /local/zemel/gzg2104/_imagenet_models/08_08_24/batch2048/checkpoint-100.pth \
-    --dataset_name cifar \
+    --finetune /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-400.pth \
+    --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
-    --nb_classes 100 \
-    --output_dir /local/zemel/gzg2104/_imagenet_models/08_08_24/batch2048/linprobe/100 \
-    --batch_size 1024 \
+    --nb_classes 1000 \
+    --output_dir /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/imagenet_linprobe/400 \
+    --batch_size 4096 \
     --log_dir /local/zemel/gzg2104/logs \
-    --wandb_project linprobe_cifar \
+    --wandb_project linprobe_imagenet \
     --device cuda \
     --master_port 12358

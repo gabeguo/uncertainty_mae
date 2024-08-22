@@ -5,9 +5,11 @@ import requests
 import random
 import argparse
 from tqdm import tqdm
+import json
 
 import torch
 import numpy as np
+import scipy.stats as stats
 
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -28,9 +30,9 @@ from functools import partial
 from torchvision.models import resnet50, ResNet50_Weights, resnet152, ResNet152_Weights
 from torchvision.models import vit_l_16, ViT_L_16_Weights
 
-torch.hub.set_dir('/local/zemel/gzg2104/pretrained_weights')
+import seaborn as sns
 
-CATEGORY_NAMES = ViT_L_16_Weights.IMAGENET1K_SWAG_E2E_V1.meta["categories"]
+torch.hub.set_dir('/local/zemel/gzg2104/pretrained_weights')
 
 imagenet_mean = 255 * np.array([0.485, 0.456, 0.406])
 imagenet_std = 255 * np.array([0.229, 0.224, 0.225])
@@ -95,59 +97,9 @@ def prepare_uncertainty_model(chkpt_dir, arch='mae_vit_base_patch16', same_encod
 
     return model
 
-def find_infill_portion(reconstruction, mask):
-    assert len(reconstruction.shape) == 4, f"{reconstruction.shape}"
-    assert reconstruction.shape == mask.shape, f"{reconstruction.shape}, {mask.shape}"
-    assert reconstruction.shape[3] == 3, f"{reconstruction.shape}"
-    assert mask.shape[0] == 1, f"{mask.shape}"
-
-    mask = mask[0] # we only have one
-    compressed_mask = torch.sum(mask, dim=2) # get rid of channels
-    assert compressed_mask.shape == reconstruction.shape[1:3] # should just be h, w
-    rows_filled = torch.sum(compressed_mask, dim=1).nonzero()
-    cols_filled = torch.sum(compressed_mask, dim=0).nonzero()
-
-    if rows_filled.numel() == 0 or cols_filled.numel() == 0:
-        return mask
-
-    r_min = torch.min(rows_filled)
-    r_max = torch.max(rows_filled)
-    c_min = torch.min(cols_filled)
-    c_max = torch.max(cols_filled)
-
-    orig_shape = reconstruction.shape[1:3]
-    reconstruction = reconstruction[0]
-    reconstructed_portion = reconstruction[r_min:r_max, c_min:c_max]
-    reconstructed_portion = torch.permute(reconstructed_portion, (2, 0, 1))
-    assert reconstructed_portion.shape[0] == 3
-    reconstructed_portion = torchvision.transforms.functional.resize(reconstructed_portion, orig_shape)
-    reconstructed_portion = torch.permute(reconstructed_portion, (1, 2, 0))
-    assert reconstructed_portion.shape[2] == 3
-
-    return reconstructed_portion
-
-def classify(args, img, classifier):
-    img = torch.einsum('nhwc->nchw', img)
-    img = img.cuda()
-    img = torchvision.transforms.functional.resize(img.squeeze(0), size=(512, 512)).unsqueeze(0)
-
-    prediction = classifier(img).squeeze(0).softmax(0)
-
-    plausible_indices = (prediction > args.threshold).nonzero()
-    plausible_scores = prediction[plausible_indices]
-
-    assert len(plausible_indices) == len(plausible_scores)
-
-    return plausible_indices, plausible_scores
-
-    # class_id = prediction.argmax().item()
-    # score = prediction[class_id].item()
-
-    # return class_id, score
-
-def run_one_image(args, img, model, img_idx, classifier, sample_idx=None,
-                mask_ratio=0.75, force_mask=None, mean=imagenet_mean, std=imagenet_std,
-                add_default_mask=False, classify_ground_truth=False):
+def run_one_image(args, img, model, img_idx,
+                sample_idx=None, mask_ratio=0.75, force_mask=None, mean=imagenet_mean, std=imagenet_std,
+                add_default_mask=True):
 
     x = torch.tensor(img)
 
@@ -183,60 +135,41 @@ def run_one_image(args, img, model, img_idx, classifier, sample_idx=None,
     im_paste = x * (1 - mask) + y * mask
     # infilled portion, actual size
     im_infill = y * mask
-    # infilled portion only, resized to square
-    im_infill_square = find_infill_portion(y, mask)
-
-    # classify background, GT object, inpainted object
-    if classify_ground_truth:
-        bg_class_ids, bg_scores = classify(args, img=im_masked, classifier=classifier)
-        print(f"\tbackground prediction:")
-        for bg_class_id, bg_score in zip(bg_class_ids, bg_scores):
-            print(f"\t\t{CATEGORY_NAMES[bg_class_id.item()]}; {bg_score.item():.3f}")
-
-        gt_class_ids, gt_scores = classify(args, img=x*mask, classifier=classifier)
-        print(f"\tgt object prediction:")
-        for gt_class_id, gt_score in zip(gt_class_ids, gt_scores):
-            print(f"\t\t{CATEGORY_NAMES[gt_class_id.item()]}; {gt_score.item():.3f}")
-
-    ip_class_ids, ip_scores = classify(args, img=im_infill, classifier=classifier)
-    print(f"\tinfill prediction:")
-    for ip_class_id, ip_score in zip(ip_class_ids, ip_scores):
-        print(f"\t\t{CATEGORY_NAMES[ip_class_id.item()]}; {ip_score.item():.3f}")
-
 
     plt.figure(figsize=(24, 5))
     plt.rcParams.update({'font.size': 22})
-    plt.subplot(1, 6, 1)
+    plt.subplot(1, 5, 1)
     show_image(x[0], "original", mean=mean, std=std)
-    plt.subplot(1, 6, 2)
+    plt.subplot(1, 5, 2)
     show_image(im_masked[0], "masked", mean=mean, std=std)
-    plt.subplot(1, 6, 3)
+    plt.subplot(1, 5, 3)
     show_image(y[0], "reconstruction", mean=mean, std=std)
-    plt.subplot(1, 6, 4)
+    plt.subplot(1, 5, 4)
     show_image(im_infill[0], "infilled", mean=mean, std=std)
-    plt.subplot(1, 6, 5)
-    show_image(im_infill_square, "infilled (resized)", mean=mean, std=std)
-    plt.subplot(1, 6, 6)
+    plt.subplot(1, 5, 5)
     show_image(im_paste[0], "reconstruction + visible", mean=mean, std=std)
 
-    save_path = os.path.join(args.save_dir, 
+    save_path = os.path.join(get_img_dir(args), 
             f"{img_idx}_{'v' if sample_idx is None else sample_idx}.png")
     plt.tight_layout()
     plt.savefig(save_path)
     plt.clf()
 
+    # save inpainted
     plt.figure(figsize=(6, 6))
-    show_image(im_infill[0], "", mean=mean, std=std)
-    padded_inpaint_save_path = os.path.join(get_inpaint_dir(args), 
-            f"{img_idx}_{'v' if sample_idx is None else sample_idx}_padded.png")
+    show_image(im_paste[0], "", mean=mean, std=std)
+    padded_inpaint_save_path = os.path.join(
+        get_inpaint_ours_dir(args) if isinstance(model, UncertaintyMAE) else get_inpaint_baseline_dir(args), 
+        f"{img_idx}_{'v' if sample_idx is None else sample_idx}_inpainted.png")
     plt.tight_layout(pad=0)
     plt.savefig(padded_inpaint_save_path)
-    show_image(im_infill_square, "", mean=mean, std=std)
-    square_save_path = os.path.join(get_inpaint_dir(args), 
-            f"{img_idx}_{'v' if sample_idx is None else sample_idx}_square.png")
-    plt.tight_layout(pad=0)
-    plt.savefig(square_save_path)
-    plt.close()
+    # save original
+    if not isinstance(model, UncertaintyMAE):
+        show_image(x[0], "", mean=mean, std=std)
+        orig_save_path = os.path.join(get_gt_dir(args), f"{img_idx}_gt_image.png")
+        plt.tight_layout(pad=0)
+        plt.savefig(orig_save_path)
+    plt.close('all')
 
     return
 
@@ -288,11 +221,20 @@ def create_test_loader():
 
     return test_loader
 
-def randomize_mask_layout(mask_layout, mask_ratio=0.75):
-    all_indices = [(i, j) for i in range(mask_layout.shape[0]) for j in range(mask_layout.shape[1])]
-    random.shuffle(all_indices)
-    for i, j in all_indices[:int(mask_ratio * len(all_indices))]:
-        mask_layout[i, j] = 0
+def randomize_mask_layout(mask_layout):
+    rn = random.random()
+    assert 0 <= rn <= 1
+    if 0 <= rn <= 0.2:
+        mask_layout[0:7, 0:7] = 0
+    elif 0.2 < rn <= 0.4:
+        mask_layout[0:7, 7:14] = 0
+    elif 0.4 < rn <= 0.6:
+        mask_layout[7:14, 0:7] = 0
+    elif 0.6 < rn <= 0.8:
+        mask_layout[7:14, 7:14] = 0
+    else:
+        mask_layout[4:11, 3:10] = 0
+
     return
 
 def get_mask_indices(mask_layout):
@@ -311,29 +253,28 @@ def get_mask_indices(mask_layout):
 
     return keep_indices, mask_indices
 
-def create_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--uncertainty_weights', type=str,
-                        default='/local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-600.pth')
-    parser.add_argument('--baseline_weights', type=str,
-                        default='/home/gzg2104/uncertainty_mae/mae_visualize_vit_base.pth')
-    parser.add_argument('--num_iterations', type=int, default=20)
-    parser.add_argument('--num_samples', type=int, default=3)
-    parser.add_argument('--save_dir', type=str, default='/local/zemel/gzg2104/outputs/08_08_24_cov')
-    parser.add_argument('--random_mask', action='store_true')
-    parser.add_argument('--threshold', type=float, default=0.2)
+def get_img_dir(args):
+    return os.path.join(args.save_dir, 'images')
 
-    args = parser.parse_args()
+def get_inpaint_ours_dir(args):
+    return os.path.join(args.save_dir, 'inpaint_ours')
 
-    return args
+def get_inpaint_baseline_dir(args):
+    return os.path.join(args.save_dir, 'inpaint_baseline')
 
-def get_inpaint_dir(args):
-    return os.path.join(args.save_dir, 'inpaints')
+def get_gt_dir(args):
+    return os.path.join(args.save_dir, 'gt')
 
 def main(args):
     os.makedirs(args.save_dir, exist_ok=True)
-    inpaint_dir = get_inpaint_dir(args)
-    os.makedirs(inpaint_dir, exist_ok=True)
+    img_dir = get_img_dir(args)
+    inpaint_ours_dir = get_inpaint_ours_dir(args)
+    inpaint_baseline_dir = get_inpaint_baseline_dir(args)
+    gt_dir = get_gt_dir(args)
+    os.makedirs(img_dir, exist_ok=True)
+    os.makedirs(inpaint_ours_dir, exist_ok=True)
+    os.makedirs(inpaint_baseline_dir, exist_ok=True)
+    os.makedirs(gt_dir, exist_ok=True)
 
     test_loader = create_test_loader()
 
@@ -348,53 +289,71 @@ def main(args):
     uncertainty_model_mae = uncertainty_model_mae.cuda()
     uncertainty_model_mae.eval()
 
-    # Using pretrained weights:
-    classifier = vit_l_16(weights=ViT_L_16_Weights.IMAGENET1K_SWAG_E2E_V1)
-    classifier = classifier.cuda()
-    classifier.eval()
-
     add_default_mask=True
         
     print(model_mae)
+    args.num_iterations = min(args.num_iterations, len(test_loader))
     for idx, img_dict in tqdm(enumerate(test_loader)):
-        print(f"img: {idx}")
+        if idx < args.start_from:
+            continue
+        #print(f"img: {idx}")
         plt.rcParams['figure.figsize'] = [5, 5]
         img = img_dict['image']
-
-        if idx == 0:
-            img = create_checker()
 
         assert img.shape == (1, 3, 224, 224)
         img = img.cuda()
         img = img.squeeze()
 
         torch.manual_seed(idx)
-        #print(mask_layout.shape)
-        if args.random_mask:
+        mask_layout = img_dict['token_mask'].to(device=img.device)
+        if args.random_mask \
+                or torch.sum(mask_layout) > (1 - args.min_mask_ratio) * 14 * 14 \
+                or torch.sum(mask_layout) < (1 - args.max_mask_ratio) * 14 * 14:
             mask_layout = torch.ones(14, 14).to(device=img.device)
-            randomize_mask_layout(mask_layout, mask_ratio=0.75)
+            randomize_mask_layout(mask_layout)
             mask_layout = mask_layout.reshape(1, 14, 14)
-        elif idx == 0:
-            mask_layout = torch.ones(14, 14).to(device=img.device)
-            mask_layout[4:8, 4:8] = 0
-            mask_layout = mask_layout.reshape(1, 14, 14)
-        else:
-            mask_layout = img_dict['token_mask'].to(device=img.device)
 
         keep_indices, mask_indices = get_mask_indices(mask_layout)
 
         ids_shuffle = torch.cat((keep_indices, mask_indices), dim=1)
         mask_ratio = 1 - keep_indices.shape[1] / ids_shuffle.shape[1]
+
+        # get the GT only once
+        run_one_image(args, img, model_mae, 
+                mask_ratio=mask_ratio, force_mask=ids_shuffle, img_idx=idx)
+        plt.close('all')
+
         for j in range(args.num_samples):
-            run_one_image(args, img, uncertainty_model_mae, mask_ratio=mask_ratio, force_mask=(keep_indices, mask_indices),
-                            mean=imagenet_mean, std=imagenet_std, add_default_mask=add_default_mask, img_idx=idx, sample_idx=j,
-                            classifier=classifier, classify_ground_truth=(j == 0))
-        print('\tbaseline')
-        run_one_image(args, img, model_mae, mask_ratio=mask_ratio, force_mask=ids_shuffle, img_idx=idx,
-                      classifier=classifier)
-        plt.close()
+            run_one_image(args, img, uncertainty_model_mae, 
+                        mask_ratio=mask_ratio, force_mask=(keep_indices, mask_indices),
+                        mean=imagenet_mean, std=imagenet_std, add_default_mask=add_default_mask, img_idx=idx, sample_idx=j
+            )
+            plt.close('all')
         if idx == args.num_iterations:
             break
+
+    with open(os.path.join(args.save_dir, 'settings.json'), 'w') as fout:
+        json.dump(vars(args), fout, indent=4)
+
+    return
+
+def create_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--uncertainty_weights', type=str,
+                        default='/local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-600.pth')
+    parser.add_argument('--baseline_weights', type=str,
+                        default='/home/gzg2104/uncertainty_mae/mae_visualize_vit_base.pth')
+    parser.add_argument('--num_iterations', type=int, default=20)
+    parser.add_argument('--num_samples', type=int, default=3)
+    parser.add_argument('--save_dir', type=str, default='/local/zemel/gzg2104/outputs/08_08_24_cov')
+    parser.add_argument('--random_mask', action='store_true')
+    parser.add_argument('--max_mask_ratio', type=float, default=0.7)
+    parser.add_argument('--min_mask_ratio', type=float, default=0.2)
+    parser.add_argument('--start_from', type=int, default=0)
+
+    args = parser.parse_args()
+
+    return args
 
 if __name__ == "__main__":
     args = create_args()

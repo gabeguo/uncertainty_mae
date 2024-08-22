@@ -153,6 +153,8 @@ def get_args_parser():
     parser.add_argument('--model', default='vit_large_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
     parser.add_argument('--num_vae_blocks', default=1, type=int)
+    parser.add_argument('--invisible_mae', action='store_true', 
+                        help='whether to use the invisible mae')
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0,
@@ -262,7 +264,10 @@ def set_model(args, model, weight_path):
                                     num_vae_blocks=args.num_vae_blocks, disable_zero_conv=True)
             uncertainty_mae = UncertaintyMAE(visible_mae=visible_model, invisible_mae=invisible_model)
             uncertainty_mae.load_state_dict(checkpoint_model)
-            checkpoint_model = uncertainty_mae.visible_mae.state_dict()
+            if args.invisible_mae:
+                checkpoint_model = uncertainty_mae.invisible_mae.state_dict()
+            else:
+                checkpoint_model = uncertainty_mae.visible_mae.state_dict()
             print('Uncertainty MAE')
 
     else:

@@ -64,6 +64,8 @@ def get_args_parser():
     parser.add_argument('--model', default='vit_large_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
     parser.add_argument('--num_vae_blocks', default=1, type=int)
+    parser.add_argument('--invisible_mae', action='store_true', 
+                        help='whether to use the invisible mae')
 
     parser.add_argument('--input_size', default=224, type=int,
                         help='images input size')
@@ -129,6 +131,10 @@ def get_args_parser():
     parser.set_defaults(global_pool=True)
     parser.add_argument('--cls_token', action='store_false', dest='global_pool',
                         help='Use class token instead of global pool for classification')
+
+    # Evaluation Setting
+    parser.add_argument('--keep_ratio', default=None, type=float,
+                        help='Do we do partial image classification (where we only use some of image tokens)?')
 
     # Dataset parameters
     parser.add_argument('--data_path', default='/datasets01/imagenet_full_size/061417/', type=str,
@@ -277,6 +283,7 @@ def main(rank, args, world_size):
         drop_path_rate=args.drop_path,
         global_pool=args.global_pool,
     )
+    model.keep_ratio = args.keep_ratio
 
     if args.finetune and not args.eval:
         checkpoint = torch.load(args.finetune, map_location='cpu')
@@ -290,7 +297,10 @@ def main(rank, args, world_size):
                                     num_vae_blocks=args.num_vae_blocks, disable_zero_conv=True)
             uncertainty_mae = UncertaintyMAE(visible_mae=visible_model, invisible_mae=invisible_model)
             uncertainty_mae.load_state_dict(checkpoint_model)
-            checkpoint_model = uncertainty_mae.visible_mae.state_dict()
+            if args.invisible_mae:
+                checkpoint_model = uncertainty_mae.invisible_mae.state_dict()
+            else:
+                checkpoint_model = uncertainty_mae.visible_mae.state_dict()
             print('Uncertainty MAE')
         for k in ['head.weight', 'head.bias']:
             if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:

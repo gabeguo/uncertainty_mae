@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_imagenet_models/08_10_24/batch1024_beta35
+output_path=/local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch
 python main_pretrain.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
@@ -10,10 +10,10 @@ python main_pretrain.py \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
     --epochs 800 \
-    --log_freq 20 \
+    --log_freq 10 \
     --num_workers 16 \
     --vae \
-    --kld_beta 35 \
+    --kld_beta 30 \
     --invisible_lr_scale 0.01 \
     --mask_ratio 0.75 \
     --partial_vae \
@@ -26,4 +26,5 @@ python main_pretrain.py \
     --master_port 12355 \
     --object_mask \
     --add_default_mask \
-    --var 1
+    --var 1 \
+    --resume /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-640.pth
