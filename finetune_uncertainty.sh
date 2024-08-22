@@ -5,8 +5,8 @@ python main_finetune.py \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
     --nb_classes 1000 \
     --output_dir /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/imagenet_finetune_diffParams/600 \
-    --batch_size 256 \
-    --accum_iter 2 \
+    --batch_size 512 \
+    --accum_iter 1 \
     --blr 5e-4 \
     --layer_decay 0.65 \
     --drop_path 0.1 \
@@ -14,5 +14,5 @@ python main_finetune.py \
     --wandb_project linprobe_imagenet \
     --device cuda \
     --num_workers 8 \
-    --master_port 12354 \
+    --master_port 12356 \
     --log_freq 5
