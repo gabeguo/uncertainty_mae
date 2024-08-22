@@ -1,8 +1,7 @@
 #!/bin/bash
 
 WORKDIR=$(pwd)
-output_path=/burg/zgroup/users/gzg2104/_imagenet_models/08_10_24/beta25
-JOB_DIR=$(pwd)
+JOB_DIR=/burg/zgroup/users/gzg2104/imported_hippo
 python $WORKDIR/submitit_pretrain.py \
     --ngpus 4 \
     --nodes 1 \
@@ -11,21 +10,19 @@ python $WORKDIR/submitit_pretrain.py \
     --job_dir $JOB_DIR \
     --partition short \
     --account zgroup \
-    --job_name imagenet_beta25 \
+    --job_name resume_from_hippo \
     --output mae.out \
     --error mae.err \
     --dataset_name imagenet \
     --data_path /burg/zgroup/users/gzg2104/data \
     --batch_size 128 \
     --blr 1.5e-4 \
-    --output_dir $output_path \
-    --log_dir $output_path \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
     --epochs 800 \
-    --log_freq 20 \
+    --log_freq 10 \
     --vae \
-    --kld_beta 25 \
+    --kld_beta 30 \
     --invisible_lr_scale 0.01 \
     --mask_ratio 0.75 \
     --partial_vae \
@@ -34,9 +31,9 @@ python $WORKDIR/submitit_pretrain.py \
     --weight_decay 0.05 \
     --mixed_precision \
     --wandb_project imagenet_hippo \
-    --wandb_name beta25_manitou \
+    --wandb_name resume_from_hippo \
     --disable_zero_conv \
-    --object_mask \
     --add_default_mask \
     --var 1 \
-    --exclude 'm[012]'
+    --exclude 'm[012]' \
+    --resume /burg/zgroup/users/gzg2104/imported_hippo/checkpoint-640.pth

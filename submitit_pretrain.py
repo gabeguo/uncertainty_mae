@@ -116,7 +116,7 @@ def main():
         mem_gb=48*num_gpus_per_node,
         gpus_per_node=num_gpus_per_node,
         tasks_per_node=num_gpus_per_node,  # one task per GPU
-        cpus_per_task=10,
+        cpus_per_task=8,
         nodes=nodes,
         timeout_min=timeout_min,  # max is 60 * 72
         # Below are cluster dependent parameters
@@ -134,12 +134,39 @@ def main():
     args.dist_url = get_init_file().as_uri()
     args.output_dir = args.job_dir
 
+    args.resume = find_most_recent_checkpoint(args.resume)
+
     trainer = Trainer(args)
     job = executor.submit(trainer)
 
     # print("Submitted job_id:", job.job_id)
     print(job.job_id)
 
+def get_epoch_num(checkpoint_filename):
+    assert checkpoint_filename.startswith('checkpoint-'), f"{checkpoint_filename}"
+    assert checkpoint_filename.endswith('.pth'), f"{checkpoint_filename}"
+    curr_epoch_num = int(checkpoint_filename.split('-')[1][:-4])
+
+    return curr_epoch_num
+    
+def find_most_recent_checkpoint(curr_checkpoint):
+    print(f"Starting checkpoint: {curr_checkpoint}")
+    checkpoint_dir = os.path.dirname(curr_checkpoint)
+
+    highest_epoch_num = get_epoch_num(os.path.basename(curr_checkpoint))
+    print(f"Curr epoch num: {highest_epoch_num}")
+    highest_checkpoint = curr_checkpoint
+
+    for item in os.listdir(checkpoint_dir):
+        if 'checkpoint-' in item and '.pth' in item:
+            curr_epoch_num = get_epoch_num(item)
+            if curr_epoch_num > highest_epoch_num:
+                highest_epoch_num = curr_epoch_num
+                highest_checkpoint = os.path.join(checkpoint_dir, item)
+    
+    print(f"New checkpoint: {highest_checkpoint}")
+
+    return highest_checkpoint
 
 if __name__ == "__main__":
     main()
