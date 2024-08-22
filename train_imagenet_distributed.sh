@@ -35,4 +35,5 @@ python $WORKDIR/submitit_pretrain.py \
     --disable_zero_conv \
     --add_default_mask \
     --var 1 \
-    --exclude 'm[012]'
+    --exclude 'm[012]' \
+    --resume /burg/zgroup/users/gzg2104/imported_hippo/checkpoint-640.pth
