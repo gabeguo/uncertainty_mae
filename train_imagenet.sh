@@ -10,7 +10,7 @@ python main_pretrain.py \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
     --epochs 800 \
-    --log_freq 20 \
+    --log_freq 10 \
     --num_workers 16 \
     --vae \
     --kld_beta 30 \
