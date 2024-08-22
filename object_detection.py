@@ -23,7 +23,7 @@ def process_image(args, img_path, model):
     preprocess = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT.transforms()
 
     # Step 3: Apply inference preprocessing transforms
-    batch = [preprocess(img)]
+    batch = [preprocess(img).cuda()]
 
     # Step 4: Use the model and visualize the prediction
     prediction = model(batch)[0]
@@ -98,6 +98,7 @@ def main(args):
     weights = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT
     model = fasterrcnn_resnet50_fpn_v2(weights=weights, box_score_thresh=args.box_score_thresh)
     model.eval()
+    model = model.cuda()
 
     co_occurrence_gt = calc_co_occurrence(args, dir=gt_dir, model=model)
     co_occurrence_ours = calc_co_occurrence(args, dir=inpaint_ours_dir, model=model)
