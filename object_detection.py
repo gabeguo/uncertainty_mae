@@ -46,7 +46,7 @@ def process_image(args, img_path, model):
     return [value.item() for value in label_nums]
 
 def calc_co_occurrence(args, dir, model):
-    co_occurrence = np.zeros((90, 90))
+    co_occurrence = np.zeros((91, 91))
     for img_name in tqdm(os.listdir(dir)):
         img_path = os.path.join(dir, img_name)
         label_nums = process_image(args, img_path=os.path.join(dir, img_name), model=model)
