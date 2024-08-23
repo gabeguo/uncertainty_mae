@@ -51,9 +51,10 @@ def calc_co_occurrence(args, dir, model):
         img_path = os.path.join(dir, img_name)
         label_nums = process_image(args, img_path=os.path.join(dir, img_name), model=model)
         # print(label_nums)
-        for i in label_nums:
-            for j in label_nums:
-                co_occurrence[i, j] += 1
+        for idx_i, label_i in enumerate(label_nums):
+            for idx_j, label_j in enumerate(label_nums):
+                if idx_i != idx_j: # don't want object to co-occur with itself
+                    co_occurrence[label_i, label_j] += 1
     return co_occurrence
 
 def save_co_occurrence(args, co_occurrence, name):
