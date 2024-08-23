@@ -7,10 +7,10 @@ from scipy.spatial.distance import jensenshannon
 
 def create_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_dir', type=str)
-    parser.add_argument('--output_dir', type=str)
+    parser.add_argument('--data_dir', type=str, default='/local/zemel/gzg2104/outputs/08_21_24/detection')
+    parser.add_argument('--output_dir', type=str, default='dummy')
     parser.add_argument('--k', type=int, default=10)
-    parser.add_argument('--kld_smooth', type=float, default=1e-3)
+    parser.add_argument('--kld_smooth', type=float, default=1e-4)
 
     args = parser.parse_args()
 
