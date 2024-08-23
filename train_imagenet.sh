@@ -11,7 +11,7 @@ python main_pretrain.py \
     --warmup_epochs 40 \
     --epochs 800 \
     --log_freq 10 \
-    --num_workers 16 \
+    --num_workers 8 \
     --vae \
     --kld_beta 30 \
     --invisible_lr_scale 0.01 \
@@ -27,4 +27,4 @@ python main_pretrain.py \
     --object_mask \
     --add_default_mask \
     --var 1 \
-    --resume /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-640.pth
+    --resume /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-660.pth
