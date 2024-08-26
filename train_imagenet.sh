@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch
+output_path=/local/zemel/gzg2104/_imagenet_models/08_26_24/normPixLoss
 python main_pretrain.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
@@ -27,4 +27,4 @@ python main_pretrain.py \
     --object_mask \
     --add_default_mask \
     --var 1 \
-    --resume /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-660.pth
+    --norm_pix_loss
