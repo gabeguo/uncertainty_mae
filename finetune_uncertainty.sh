@@ -1,10 +1,10 @@
 python main_finetune.py \
     --model vit_base_patch16 \
-    --finetune /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-799.pth \
+    --finetune /local/zemel/gzg2104/_imagenet_models/08_26_24/normPixLoss/checkpoint-160.pth \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
     --nb_classes 1000 \
-    --output_dir /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/imagenet_finetune_diffParams/799 \
+    --output_dir /local/zemel/gzg2104/_imagenet_models/08_26_24/normPixLoss/finetune/160 \
     --batch_size 256 \
     --accum_iter 2 \
     --blr 5e-4 \
