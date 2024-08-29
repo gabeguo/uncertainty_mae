@@ -27,4 +27,5 @@ python main_pretrain.py \
     --object_mask \
     --add_default_mask \
     --var 1 \
-    --norm_pix_loss
+    --norm_pix_loss \
+    --resume /local/zemel/gzg2104/_imagenet_models/08_26_24/normPixLoss/checkpoint-170.pth
