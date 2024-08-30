@@ -4,7 +4,7 @@ python main_pretrain.py \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
     --batch_size 256 \
     --blr 1.5e-4 \
-    --accum_iter 2 \
+    --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
@@ -28,4 +28,5 @@ python main_pretrain.py \
     --add_default_mask \
     --var 1 \
     --norm_pix_loss \
-    --resume /local/zemel/gzg2104/_imagenet_models/08_26_24/normPixLoss/checkpoint-170.pth
+    --resume /local/zemel/gzg2104/_imagenet_models/08_26_24/normPixLoss/checkpoint-180.pth \
+    --kill_epoch 251
