@@ -115,7 +115,7 @@ class Trainer:
     def train(self):
         for epoch in range(self.args.start_epoch, self.args.epochs):
             self._run_epoch(epoch)
-            if epoch == args.kill_epoch:
+            if epoch == self.args.kill_epoch:
                 return
         return
 
