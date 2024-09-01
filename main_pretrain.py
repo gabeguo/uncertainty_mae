@@ -115,6 +115,8 @@ class Trainer:
     def train(self):
         for epoch in range(self.args.start_epoch, self.args.epochs):
             self._run_epoch(epoch)
+            if epoch == self.args.kill_epoch:
+                return
         return
 
 
@@ -221,6 +223,8 @@ def get_args_parser():
 
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
+    parser.add_argument('--kill_epoch', default=801, type=int,
+                        help='epoch to kill it on')
     parser.add_argument('--num_workers', default=10, type=int)
     parser.add_argument('--pin_mem', action='store_true',
                         help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
