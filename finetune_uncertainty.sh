@@ -1,10 +1,10 @@
 python main_finetune.py \
     --model vit_base_patch16 \
-    --finetune /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-160.pth \
+    --finetune /local/zemel/gzg2104/_imagenet_models/08_26_24/normPixLoss/checkpoint-420.pth \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
     --nb_classes 1000 \
-    --output_dir /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/finetune_compareToNorm/160 \
+    --output_dir /local/zemel/gzg2104/_imagenet_models/08_26_24/normPixLoss/finetune/420 \
     --batch_size 256 \
     --accum_iter 2 \
     --blr 5e-4 \
@@ -14,5 +14,5 @@ python main_finetune.py \
     --wandb_project linprobe_imagenet \
     --device cuda \
     --num_workers 8 \
-    --master_port 12356 \
+    --master_port 12357 \
     --log_freq 5
