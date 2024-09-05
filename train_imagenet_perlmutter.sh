@@ -1,16 +1,16 @@
 #!/bin/bash
 
 WORKDIR=$(pwd)
-JOB_DIR=$PSCRATCH/weights/09_01_24/normPixLoss
+JOB_DIR=$PSCRATCH/weights/09_05_24/largeScale
 python $WORKDIR/submitit_pretrain.py \
     --ngpus 4 \
-    --nodes 8 \
+    --nodes 16 \
     --accum_iter 1 \
     --timeout 2880 \
     --job_dir $JOB_DIR \
     --partition m1266 \
     --account m1266 \
-    --job_name perlmutter \
+    --job_name perlmutter_large \
     --qos regular \
     --output mae.out \
     --error mae.err \
@@ -20,7 +20,7 @@ python $WORKDIR/submitit_pretrain.py \
     --blr 1.5e-4 \
     --model mae_vit_base_patch16 \
     --warmup_epochs 40 \
-    --epochs 800 \
+    --epochs 1600 \
     --log_freq 10 \
     --vae \
     --kld_beta 30 \
