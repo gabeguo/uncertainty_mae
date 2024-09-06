@@ -155,7 +155,7 @@ def run_one_image(args, img, model, img_idx,
     plt.savefig(save_path)
     plt.clf()
 
-    # save inpainted
+    # save full inpainted
     plt.figure(figsize=(6, 6))
     show_image(im_paste[0], "", mean=mean, std=std)
     padded_inpaint_save_path = os.path.join(
@@ -163,6 +163,16 @@ def run_one_image(args, img, model, img_idx,
         f"{img_idx}_{'v' if sample_idx is None else sample_idx}_inpainted.png")
     plt.tight_layout(pad=0)
     plt.savefig(padded_inpaint_save_path)
+    # save just inpaint
+    show_image(im_infill[0], "", mean=mean, std=std)
+    infill_save_path = os.path.join(
+        get_infill_ours_dir(args) if isinstance(model, UncertaintyMAE) else get_infill_baseline_dir(args), 
+        f"{img_idx}_{'v' if sample_idx is None else sample_idx}_inpainted.png")
+    # save masked
+    show_image(im_masked[0], "", mean=mean, std=std)
+    masked_save_path = os.path.join(get_mask_dir(args), f"{img_idx}_mask_image.png")
+    plt.tight_layout(pad=0)
+    plt.savefig(masked_save_path)
     # save original
     if not isinstance(model, UncertaintyMAE):
         show_image(x[0], "", mean=mean, std=std)
@@ -265,16 +275,24 @@ def get_inpaint_baseline_dir(args):
 def get_gt_dir(args):
     return os.path.join(args.save_dir, 'gt')
 
+def get_infill_ours_dir(args):
+    return os.path.join(args.save_dir, 'infillOnly_ours')
+
+def get_infill_baseline_dir(args):
+    return os.path.join(args.save_dir, 'infillOnly_baseline')
+
+def get_mask_dir(args):
+    return os.path.join(args.save_dir, 'mask')
+
 def main(args):
     os.makedirs(args.save_dir, exist_ok=True)
-    img_dir = get_img_dir(args)
-    inpaint_ours_dir = get_inpaint_ours_dir(args)
-    inpaint_baseline_dir = get_inpaint_baseline_dir(args)
-    gt_dir = get_gt_dir(args)
-    os.makedirs(img_dir, exist_ok=True)
-    os.makedirs(inpaint_ours_dir, exist_ok=True)
-    os.makedirs(inpaint_baseline_dir, exist_ok=True)
-    os.makedirs(gt_dir, exist_ok=True)
+    os.makedirs(get_img_dir(args), exist_ok=True)
+    os.makedirs(get_inpaint_ours_dir(args), exist_ok=True)
+    os.makedirs(get_inpaint_baseline_dir(args), exist_ok=True)
+    os.makedirs(get_infill_ours_dir(args), exist_ok=True)
+    os.makedirs(get_infill_baseline_dir(args), exist_ok=True)
+    os.makedirs(get_gt_dir(args), exist_ok=True)
+    os.makedirs(get_mask_dir(args), exist_ok=True)
 
     test_loader = create_test_loader()
 
