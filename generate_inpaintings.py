@@ -29,6 +29,9 @@ from functools import partial
 
 from torchvision.models import resnet50, ResNet50_Weights, resnet152, ResNet152_Weights
 from torchvision.models import vit_l_16, ViT_L_16_Weights
+from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2, FasterRCNN_ResNet50_FPN_V2_Weights
+CATEGORIES = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT.meta["categories"]
+# ALT_CATEGORIES = [x for x in CATEGORIES[1:] if 'N/A' not in x]
 
 import seaborn as sns
 
@@ -313,7 +316,11 @@ def main(args):
         
     print(model_mae)
     args.num_iterations = min(args.num_iterations, len(test_loader))
+    for i in range(len(CATEGORIES)):
+        print(i, CATEGORIES[i])
     for idx, img_dict in tqdm(enumerate(test_loader)):
+        print([CATEGORIES[x] for x in img_dict['masked_classes']])
+        print([CATEGORIES[x] for x in img_dict['classes']])
         if idx < args.start_from:
             continue
         #print(f"img: {idx}")

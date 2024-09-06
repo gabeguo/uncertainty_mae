@@ -7,6 +7,13 @@ import random
 import torch
 import numpy as np
 
+from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2, FasterRCNN_ResNet50_FPN_V2_Weights
+CATEGORIES = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT.meta["categories"]
+ALT_CATEGORIES = [x for x in CATEGORIES[1:] if 'N/A' not in x] # exclude background and null
+COMPRESSED_TO_FULL_CATEGORY = {
+    i:CATEGORIES.index(ALT_CATEGORIES[i]) for i in range(len(ALT_CATEGORIES))
+}
+
 the_pre_transform = transforms.Compose([
     transforms.ToTensor()
 ])
@@ -44,34 +51,37 @@ def the_post_transform(image, mask):
 
 def transform_function(img_dict, mask_ratio=None):
     img_dict['token_mask'] = [None for _ in range(len(img_dict['image']))]
+    img_dict['classes'] = [None for _ in range(len(img_dict['image']))]
+    img_dict['masked_classes'] = [None for _ in range(len(img_dict['image']))]
     for img_idx in range(len(img_dict['image'])):
         img_dict['image'][img_idx] = the_pre_transform(img_dict['image'][img_idx])
-
         # deal with grayscale
         if img_dict['image'][img_idx].shape[0] == 1:
             img_dict['image'][img_idx] = img_dict['image'][img_idx].repeat(3, 1, 1)
 
         # pick a bbox
         the_bboxes = img_dict['objects'][img_idx]['bbox']
-        if mask_ratio is None:
-            height = img_dict['image'][img_idx].shape[1]
-            width = img_dict['image'][img_idx].shape[2]
-            total_area = height * width
-            acceptable_bboxes = list()
-            for curr_bbox in the_bboxes:
-                x_min, y_min, x_max, y_max = [int(coord) for coord in curr_bbox]
-                bbox_area = (x_max - x_min) * (y_max - y_min)
-                if 0.1 * total_area < bbox_area < 0.7 * total_area:
-                    acceptable_bboxes.append(curr_bbox)
-            if len(acceptable_bboxes) == 0:
-                min_dim = min(width, height)
-                x_min = int(0.15 * min_dim)
-                x_max = int(0.85 * min_dim)
-                y_min = int(0.15 * min_dim)
-                y_max = int(0.85 * min_dim)
-            else:
-                curr_bbox = random.choice(acceptable_bboxes)
-                x_min, y_min, x_max, y_max = [int(coord) for coord in curr_bbox]
+        the_classes = [COMPRESSED_TO_FULL_CATEGORY[x] for x in \
+            img_dict['objects'][img_idx]['category']]
+
+        height = img_dict['image'][img_idx].shape[1]
+        width = img_dict['image'][img_idx].shape[2]
+        total_area = height * width
+        acceptable_bboxes = list()
+        for curr_bbox, curr_class in zip(the_bboxes, the_classes):
+            x_min, y_min, x_max, y_max = [int(coord) for coord in curr_bbox]
+            bbox_area = (x_max - x_min) * (y_max - y_min)
+            if 0.1 * total_area < bbox_area < 0.7 * total_area:
+                acceptable_bboxes.append((curr_bbox, curr_class))
+        if len(acceptable_bboxes) == 0:
+            min_dim = min(width, height)
+            x_min = int(0.15 * min_dim)
+            x_max = int(0.85 * min_dim)
+            y_min = int(0.15 * min_dim)
+            y_max = int(0.85 * min_dim)
+        else:
+            curr_bbox, curr_class = random.choice(acceptable_bboxes)
+            x_min, y_min, x_max, y_max = [int(coord) for coord in curr_bbox]
 
         # mask in true coordinate space
         fine_mask = torch.ones_like(img_dict['image'][img_idx])
@@ -81,12 +91,15 @@ def transform_function(img_dict, mask_ratio=None):
         # do transform only after applying mask
         # transform image and fine mask together
         img_dict['image'][img_idx], fine_mask = the_post_transform(image=img_dict['image'][img_idx], mask=fine_mask)
-        
+        img_dict['classes'][img_idx] = the_classes
+        img_dict['masked_classes'][img_idx] = curr_class
+
         # set token mask
         fine_mask = fine_mask[0]
         img_dict['token_mask'][img_idx] = create_token_mask(fine_mask, mask_ratio=mask_ratio)
 
-    return {'image':img_dict['image'], 'token_mask':img_dict['token_mask']}
+    return {'image':img_dict['image'], 'token_mask':img_dict['token_mask'], 
+        'classes':img_dict['classes'], 'masked_classes':img_dict['masked_classes']}
 
 def create_token_mask(fine_mask, dims=(14, 14), mask_ratio=0.75):
     assert len(fine_mask.shape) == 2
