@@ -168,6 +168,8 @@ def run_one_image(args, img, model, img_idx,
     infill_save_path = os.path.join(
         get_infill_ours_dir(args) if isinstance(model, UncertaintyMAE) else get_infill_baseline_dir(args), 
         f"{img_idx}_{'v' if sample_idx is None else sample_idx}_inpainted.png")
+    plt.tight_layout(pad=0)
+    plt.savefig(infill_save_path)
     # save masked
     show_image(im_masked[0], "", mean=mean, std=std)
     masked_save_path = os.path.join(get_mask_dir(args), f"{img_idx}_mask_image.png")
