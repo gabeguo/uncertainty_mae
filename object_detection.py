@@ -74,7 +74,7 @@ def calc_gt_co_occurrence(args, objects_dir):
 
 def sanity_check_co_occurrence(co_occurrence):
     diagonals = set([co_occurrence[i, i] for i in range(co_occurrence.shape[0])])
-    assert np.equals(co_occurrence.T, co_occurrence)
+    assert np.array_equal(co_occurrence.T, co_occurrence)
     assert 0 in diagonals
     return
 
@@ -87,6 +87,8 @@ def calc_precision_recall(args, inpaint_dir, objects_dir, co_occurrence, model):
     for img_name in tqdm(os.listdir(inpaint_dir)):
         img_path = os.path.join(inpaint_dir, img_name)
         the_img_num = get_img_num(img_name)
+        # if the_img_num > 10:
+        #     continue
         # detect what the inpainted object is ONLY
         label_nums, prediction = process_image(args, img_path=img_path, model=model)
         if the_img_num not in img_num_to_predLabels:
@@ -94,14 +96,15 @@ def calc_precision_recall(args, inpaint_dir, objects_dir, co_occurrence, model):
         # TODO: only have most likely?
         img_num_to_predLabels[the_img_num].update(label_nums)
     # now calculate precision and recall per-image
-    for img_num in img_num_to_predLabels:
+    for the_img_num in img_num_to_predLabels:
         tp = 0
         fp = 0
         fn = 0
         objects_that_should_occur = set(get_objects_that_should_occur(
-            args=args, img_num=img_num, objects_dir=objects_dir, co_occurrence=co_occurrence))
+            args=args, img_num=the_img_num, objects_dir=objects_dir, co_occurrence=co_occurrence))
         assert max(objects_that_should_occur) < 91
-        assert max(img_num_to_predLabels[the_img_num]) < 91
+        assert len(img_num_to_predLabels[the_img_num]) == 0 \
+        or max(img_num_to_predLabels[the_img_num]) < 91
         for class_i in range(co_occurrence.shape[0]):
             if class_i in objects_that_should_occur \
             and class_i in img_num_to_predLabels[the_img_num]:
@@ -112,8 +115,14 @@ def calc_precision_recall(args, inpaint_dir, objects_dir, co_occurrence, model):
             elif class_i in objects_that_should_occur \
             and class_i not in img_num_to_predLabels[the_img_num]:
                 fn += 1
-        precisions.append(tp / (tp + fp))
-        recalls.append(tp / (tp + fn))
+        if tp + fp == 0:
+            precisions.append(0)
+        else:
+            precisions.append(tp / (tp + fp))
+        if tp + fn == 0:
+            recalls.append(0)
+        else:
+            recalls.append(tp / (tp + fn))
     return precisions, recalls
 
 def get_objects_that_should_occur(args, img_num, objects_dir, co_occurrence):
@@ -201,7 +210,7 @@ def create_args():
     parser.add_argument('--input_dir', type=str)
     parser.add_argument('--output_dir', type=str)
     parser.add_argument('--box_score_thresh', type=float, default=0.7)
-    parser.add_argument('--occurrence_prob_thresh', type=float, default=0.05)
+    parser.add_argument('--occurrence_prob_threshold', type=float, default=0.05)
     parser.add_argument('--num_trials_inpaint', type=int, default=2)
 
     args = parser.parse_args()
