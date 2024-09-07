@@ -1,5 +1,5 @@
 num_samples=4
-img_dir=/local/zemel/gzg2104/outputs/09_06_24/inpaintings
+img_dir=/local/zemel/gzg2104/outputs/09_06_24/inpaintings_lessCrop
 
 python generate_inpaintings.py \
     --uncertainty_weights /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-799.pth \
