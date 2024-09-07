@@ -78,16 +78,14 @@ def sanity_check_co_occurrence(co_occurrence):
     assert 0 in diagonals
     return
 
-def calc_precision_recall(args, inpaint_dir, objects_dir, co_occurrence, model):
-    precisions = list()
-    recalls = list()
+def get_img_num_to_predLabels(args, inpaint_dir, model):
     # info we'll need later
     img_num_to_predLabels = dict()
     # go through all the images first
     for img_name in tqdm(os.listdir(inpaint_dir)):
         img_path = os.path.join(inpaint_dir, img_name)
         the_img_num = get_img_num(img_name)
-        # if the_img_num > 10:
+        # if the_img_num > 50:
         #     continue
         # detect what the inpainted object is ONLY
         label_nums, prediction = process_image(args, img_path=img_path, model=model)
@@ -95,6 +93,15 @@ def calc_precision_recall(args, inpaint_dir, objects_dir, co_occurrence, model):
             img_num_to_predLabels[the_img_num] = set()
         # TODO: only have most likely?
         img_num_to_predLabels[the_img_num].update(label_nums)
+    return img_num_to_predLabels
+
+def calc_precision_recall(args, inpaint_dir, objects_dir, co_occurrence, model):
+    precisions = list()
+    recalls = list()
+    precisions_dict = dict()
+    recalls_dict = dict()
+    img_num_to_predLabels = get_img_num_to_predLabels(args=args,
+        inpaint_dir=inpaint_dir, model=model)
     # now calculate precision and recall per-image
     for the_img_num in img_num_to_predLabels:
         tp = 0
@@ -119,11 +126,13 @@ def calc_precision_recall(args, inpaint_dir, objects_dir, co_occurrence, model):
             precisions.append(0)
         else:
             precisions.append(tp / (tp + fp))
+        precisions_dict[the_img_num] = precisions[-1]
         if tp + fn == 0:
             recalls.append(0)
         else:
             recalls.append(tp / (tp + fn))
-    return precisions, recalls
+        recalls_dict[the_img_num] = recalls[-1]
+    return precisions, recalls, precisions_dict, recalls_dict
 
 def get_objects_that_should_occur(args, img_num, objects_dir, co_occurrence):
     """
@@ -176,9 +185,17 @@ def save_co_occurrence(args, co_occurrence, name):
 
     return
 
-def save_stats(args, precisions_ours, recalls_ours, precisions_baseline, recalls_baseline):
+def save_stats(args, precisions_ours, recalls_ours, precisions_baseline, recalls_baseline,
+            precisions_dict_ours, recalls_dict_ours, precisions_dict_baseline, recalls_dict_baseline):
     with open(os.path.join(args.output_dir, 'params.json'), 'w') as fout:
         json.dump(vars(args), fout, indent=4)
+    with open(os.path.join(args.output_dir, 'precision_recall_by_img.json'), 'w') as fout:
+        json.dump({
+            'precision_ours': precisions_dict_ours,
+            'recall_ours': recalls_dict_ours,
+            'precision_baseline': precisions_dict_baseline,
+            'recall_baseline': recalls_dict_baseline
+        }, fout, indent=4)
     with open(os.path.join(args.output_dir, 'results.json'), 'w') as fout:
         json.dump({
             'ours': {
@@ -231,16 +248,20 @@ def main(args):
     model = model.cuda()
 
     co_occurrence = calc_gt_co_occurrence(args, objects_dir)
-    precisions_ours, recalls_ours = calc_precision_recall(args=args, 
+    precisions_ours, recalls_ours, precisions_dict_ours, recalls_dict_ours = \
+        calc_precision_recall(args=args, 
         inpaint_dir=inpaint_ours_dir, objects_dir=objects_dir, co_occurrence=co_occurrence, 
         model=model)
-    precisions_baseline, recalls_baseline = calc_precision_recall(args=args, 
+    precisions_baseline, recalls_baseline, precisions_dict_baseline, recalls_dict_baseline = \
+        calc_precision_recall(args=args, 
         inpaint_dir=inpaint_baseline_dir, objects_dir=objects_dir, co_occurrence=co_occurrence, 
         model=model)
     
     save_co_occurrence(args, co_occurrence, 'co_occurrence_gt')
     save_stats(args, precisions_ours=precisions_ours, recalls_ours=recalls_ours,
-            precisions_baseline=precisions_baseline, recalls_baseline=recalls_baseline)
+            precisions_baseline=precisions_baseline, recalls_baseline=recalls_baseline,
+            precisions_dict_ours=precisions_dict_ours, recalls_dict_ours=recalls_dict_ours,
+            precisions_dict_baseline=precisions_dict_baseline, recalls_dict_baseline=recalls_dict_baseline)
 
     return
 
