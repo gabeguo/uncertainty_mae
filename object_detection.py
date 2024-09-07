@@ -54,49 +54,97 @@ def get_img_num(img_name):
     the_num = int(img_name.split('_')[0])
     return the_num
 
-def calc_co_occurrence(args, dir, model, num_trials_per_image=1):
+def calc_gt_co_occurrence(args, objects_dir):
+    # co_occurrence[i, j] = total number of images in which i & j occurred together
+    # co_occurrence[i, j] = co_occurrence[j, i]
+    # co_occurrence[i, i] = # of total times i appeared (the denominator if we want conditional occurrence prob)
     co_occurrence = np.zeros((91, 91))
-    img_num_to_prediction = dict()
-    for img_name in tqdm(os.listdir(dir)):
-        img_path = os.path.join(dir, img_name)
+    for object_data_file in tqdm(os.listdir(objects_dir)):
+        object_data_filepath = os.path.join(objects_dir, object_data_file)
+        with open(object_data_filepath, 'r') as fin:
+            curr_object_data_dict = json.load(fin)
+        # if object occurs multiple times in an image, only count it ONCE
+        the_classes = set(curr_object_data_dict["classes"])
+        # does this symmetrically
+        for i in the_classes:
+            for j in the_classes:
+                co_occurrence[i, j] += 1
+    sanity_check_co_occurrence(co_occurrence)
+    return co_occurrence
+
+def sanity_check_co_occurrence(co_occurrence):
+    diagonals = set([co_occurrence[i, i] for i in range(co_occurrence.shape[0])])
+    assert np.equals(co_occurrence.T, co_occurrence)
+    assert 0 in diagonals
+    return
+
+def calc_precision_recall(args, inpaint_dir, objects_dir, co_occurrence, model):
+    precisions = list()
+    recalls = list()
+    # info we'll need later
+    img_num_to_predLabels = dict()
+    # go through all the images first
+    for img_name in tqdm(os.listdir(inpaint_dir)):
+        img_path = os.path.join(inpaint_dir, img_name)
         the_img_num = get_img_num(img_name)
-        for _ in range(num_trials_per_image): # sample baseline image multiple times, to be fair
-            label_nums, prediction = process_image(args, img_path=os.path.join(dir, img_name), model=model)
-            # keep track of the predictions
-            if the_img_num not in img_num_to_prediction:
-                img_num_to_prediction[the_img_num] = list()
-            img_num_to_prediction[the_img_num].append(prediction)
-            # keep track of co-occurrence
-            for idx_i, label_i in enumerate(label_nums):
-                for idx_j, label_j in enumerate(label_nums):
-                    if idx_i != idx_j: # don't want object to co-occur with itself
-                        co_occurrence[label_i, label_j] += 1
-    return co_occurrence, img_num_to_prediction
+        # detect what the inpainted object is ONLY
+        label_nums, prediction = process_image(args, img_path=img_path, model=model)
+        if the_img_num not in img_num_to_predLabels:
+            img_num_to_predLabels[the_img_num] = set()
+        # TODO: only have most likely?
+        img_num_to_predLabels[the_img_num].update(label_nums)
+    # now calculate precision and recall per-image
+    for img_num in img_num_to_predLabels:
+        tp = 0
+        fp = 0
+        fn = 0
+        objects_that_should_occur = set(get_objects_that_should_occur(
+            args=args, img_num=img_num, objects_dir=objects_dir, co_occurrence=co_occurrence))
+        assert max(objects_that_should_occur) < 91
+        assert max(img_num_to_predLabels[the_img_num]) < 91
+        for class_i in range(co_occurrence.shape[0]):
+            if class_i in objects_that_should_occur \
+            and class_i in img_num_to_predLabels[the_img_num]:
+                tp += 1
+            elif class_i not in objects_that_should_occur \
+            and class_i in img_num_to_predLabels[the_img_num]:
+                fp += 1
+            elif class_i in objects_that_should_occur \
+            and class_i not in img_num_to_predLabels[the_img_num]:
+                fn += 1
+        precisions.append(tp / (tp + fp))
+        recalls.append(tp / (tp + fn))
+    return precisions, recalls
 
-def get_best_map(gt_detections, pred_detections):
-    best_map = 0
-    for i in range(len(pred_detections)):
-        metric = MeanAveragePrecision(iou_type="bbox") # reset each time
-        metric.update(gt_detections, pred_detections[i:i+1])
-        assert len(metric.detection_labels) == 1
-        best_map = max(best_map, metric.compute()['map'].item())
-    return best_map
+def get_objects_that_should_occur(args, img_num, objects_dir, co_occurrence):
+    """
+    Returns indices of classes that could appear under the mask,
+    conditioned on appearance of other objects (and probability threshold)
+    """
+    object_data_json_filepath = os.path.join(objects_dir, f"{img_num}_classes.json")
+    assert os.path.exists(object_data_json_filepath)
+    with open(object_data_json_filepath, 'r') as fin:
+        object_data_dict = json.load(fin)
+    object_probabilities = noisy_or(object_data_dict['classes'], co_occurrence)
+    return set([i for i in range(len(object_probabilities)) \
+        if object_probabilities[i] > args.occurrence_prob_threshold])
 
-def get_map(gt, ours, baseline):
-    assert len(gt) == len(ours) == len(baseline)
-    maps_ours = list()
-    maps_baseline = list()
-    for img_num in tqdm(gt):
-        gt_detections = gt[img_num]
-        assert len(gt_detections) == 1
-        # multi-trial
-        assert len(ours[img_num]) == len(baseline[img_num]), \
-            f"{img_num}; ours: {ours[img_num]}; baseline: {baseline[img_num]}"
-        # ours
-        maps_ours.append(get_best_map(gt_detections, ours[img_num]))
-        maps_baseline.append(get_best_map(gt_detections, baseline[img_num]))
+def noisy_or(class_list, co_occurrence):
+    classes = set(class_list)
+    probs = list()
+    for i in range(co_occurrence.shape[0]):
+        # get probability that class i will occur
+        total_failure_prob = 1
+        for j in classes:
+             # number images in which i & j occur together, divided by total appearances of j
+            prob_i_given_j = co_occurrence[i, j] / co_occurrence[j, j]
+            assert prob_i_given_j <= 1
+            curr_failure_prob = 1 - prob_i_given_j
+            total_failure_prob *= curr_failure_prob
+        prob_i = 1 - total_failure_prob
+        probs.append(prob_i)
+    return probs
 
-    return (np.mean(maps_ours), np.std(maps_ours)), (np.mean(maps_baseline), np.std(maps_baseline))
 
 def save_co_occurrence(args, co_occurrence, name):
     # save np
@@ -119,14 +167,32 @@ def save_co_occurrence(args, co_occurrence, name):
 
     return
 
-def save_stats(args, map_ours, map_baseline):
+def save_stats(args, precisions_ours, recalls_ours, precisions_baseline, recalls_baseline):
     with open(os.path.join(args.output_dir, 'params.json'), 'w') as fout:
         json.dump(vars(args), fout, indent=4)
-    with open(os.path.join(args.output_dir, 'maps.json'), 'w') as fout:
-        json.dump(
-            {'map_ours': map_ours, 'map_baseline': map_baseline},
-            fout, indent=4
-        )
+    with open(os.path.join(args.output_dir, 'results.json'), 'w') as fout:
+        json.dump({
+            'ours': {
+                'precision': {
+                    'mean': np.mean(precisions_ours),
+                    'std': np.std(precisions_ours)
+                },
+                'recall': {
+                    'mean': np.mean(recalls_ours),
+                    'std': np.std(recalls_ours)
+                }
+            },
+            'baseline': {
+                'precision': {
+                    'mean': np.mean(precisions_baseline),
+                    'std': np.std(precisions_baseline)
+                },
+                'recall': {
+                    'mean': np.mean(recalls_baseline),
+                    'std': np.std(recalls_baseline)
+                }
+            }
+        }, fout, indent=4)
 
     return
 
@@ -135,6 +201,7 @@ def create_args():
     parser.add_argument('--input_dir', type=str)
     parser.add_argument('--output_dir', type=str)
     parser.add_argument('--box_score_thresh', type=float, default=0.7)
+    parser.add_argument('--occurrence_prob_thresh', type=float, default=0.05)
     parser.add_argument('--num_trials_inpaint', type=int, default=2)
 
     args = parser.parse_args()
@@ -144,33 +211,27 @@ def create_args():
 def main(args):
     os.makedirs(args.output_dir, exist_ok=True)
 
-    gt_dir = os.path.join(args.input_dir, 'gt')
-    inpaint_ours_dir = os.path.join(args.input_dir, 'inpaint_ours')
-    inpaint_baseline_dir = os.path.join(args.input_dir, 'inpaint_baseline')
+    objects_dir = os.path.join(args.input_dir, 'class_info')
+    # gt_dir = os.path.join(args.input_dir, 'gt')
+    inpaint_ours_dir = os.path.join(args.input_dir, 'infillOnly_ours')
+    inpaint_baseline_dir = os.path.join(args.input_dir, 'infillOnly_baseline')
 
-    # Step 1: Initialize model with the best available weights
     weights = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT
     model = fasterrcnn_resnet50_fpn_v2(weights=weights, box_score_thresh=args.box_score_thresh)
     model.eval()
     model = model.cuda()
 
-    co_occurrence_gt, gt_img_to_pred = calc_co_occurrence(args, dir=gt_dir, 
-        model=model, num_trials_per_image=1)
-    co_occurrence_ours, ours_img_to_pred = calc_co_occurrence(args, dir=inpaint_ours_dir, 
-        model=model, num_trials_per_image=1)
-    co_occurrence_baseline, baseline_img_to_pred = calc_co_occurrence(args, dir=inpaint_baseline_dir, 
-        model=model, num_trials_per_image=args.num_trials_inpaint)
-
-    map_ours, map_baseline = get_map(gt=gt_img_to_pred, 
-        ours=ours_img_to_pred, baseline=baseline_img_to_pred)
-
-    print(f'Our mAP: {map_ours[0]:.3f} +/- {map_ours[1]:.3f}')
-    print(f'Baseline mAP: {map_baseline[0]:.3f} +/- {map_baseline[1]:.3f}')
+    co_occurrence = calc_gt_co_occurrence(args, objects_dir)
+    precisions_ours, recalls_ours = calc_precision_recall(args=args, 
+        inpaint_dir=inpaint_ours_dir, objects_dir=objects_dir, co_occurrence=co_occurrence, 
+        model=model)
+    precisions_baseline, recalls_baseline = calc_precision_recall(args=args, 
+        inpaint_dir=inpaint_baseline_dir, objects_dir=objects_dir, co_occurrence=co_occurrence, 
+        model=model)
     
-    save_co_occurrence(args, co_occurrence_gt, 'co_occurrence_gt')
-    save_co_occurrence(args, co_occurrence_ours, 'co_occurrence_ours')
-    save_co_occurrence(args, co_occurrence_baseline, 'co_occurrence_baseline')
-    save_stats(args, map_ours=map_ours, map_baseline=map_baseline)
+    save_co_occurrence(args, co_occurrence, 'co_occurrence_gt')
+    save_stats(args, precisions_ours=precisions_ours, recalls_ours=recalls_ours,
+            precisions_baseline=precisions_baseline, recalls_baseline=recalls_baseline)
 
     return
 
