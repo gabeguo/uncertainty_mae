@@ -25,7 +25,7 @@ def the_post_transform(image, mask):
     # Resize
     i_dim = int((1 + 0.1 * random.random()) * 224)
     j_dim = int((1 + 0.1 * random.random()) * 224)
-    assert i_dim > 224 and j_dim > 224
+    assert i_dim >= 224 and j_dim >= 224
     resize = transforms.Resize(size=(i_dim, j_dim))
     image = resize(image)
     mask = resize(mask)
