@@ -289,6 +289,9 @@ def get_infill_baseline_dir(args):
 def get_mask_dir(args):
     return os.path.join(args.save_dir, 'mask')
 
+def get_class_data_dir(args):
+    return os.path.join(args.save_dir, 'class_info')
+
 def main(args):
     os.makedirs(args.save_dir, exist_ok=True)
     os.makedirs(get_img_dir(args), exist_ok=True)
@@ -298,6 +301,7 @@ def main(args):
     os.makedirs(get_infill_baseline_dir(args), exist_ok=True)
     os.makedirs(get_gt_dir(args), exist_ok=True)
     os.makedirs(get_mask_dir(args), exist_ok=True)
+    os.makedirs(get_class_data_dir(args), exist_ok=True)
 
     test_loader = create_test_loader()
 
@@ -316,13 +320,21 @@ def main(args):
         
     print(model_mae)
     args.num_iterations = min(args.num_iterations, len(test_loader))
-    for i in range(len(CATEGORIES)):
-        print(i, CATEGORIES[i])
     for idx, img_dict in tqdm(enumerate(test_loader)):
-        print([CATEGORIES[x] for x in img_dict['masked_classes']])
-        print([CATEGORIES[x] for x in img_dict['classes']])
         if idx < args.start_from:
             continue
+        print([CATEGORIES[x] for x in img_dict['masked_classes']])
+        print([CATEGORIES[x] for x in img_dict['classes']])
+        if -1 in img_dict['masked_classes']:
+            print('SKIP: invalid class!')
+            continue
+        with open(os.path.join(get_class_data_dir(args), f'{idx}_classes.json'), 'w') as fout:
+            json.dump({
+                'masked_classes': [x.item() for x in img_dict['masked_classes']],
+                'classes': [x.item() for x in img_dict['classes']],
+                'masked_classes_str': [CATEGORIES[x] for x in img_dict['masked_classes']],
+                'classes_str': [CATEGORIES[x] for x in img_dict['classes']]
+            }, fout, indent=4)
         #print(f"img: {idx}")
         plt.rcParams['figure.figsize'] = [5, 5]
         img = img_dict['image']

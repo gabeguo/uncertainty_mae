@@ -71,7 +71,7 @@ def transform_function(img_dict, mask_ratio=None):
         for curr_bbox, curr_class in zip(the_bboxes, the_classes):
             x_min, y_min, x_max, y_max = [int(coord) for coord in curr_bbox]
             bbox_area = (x_max - x_min) * (y_max - y_min)
-            if 0.1 * total_area < bbox_area < 0.7 * total_area:
+            if 0.1 * total_area < bbox_area < 0.85 * total_area:
                 acceptable_bboxes.append((curr_bbox, curr_class))
         if len(acceptable_bboxes) == 0:
             min_dim = min(width, height)
@@ -79,6 +79,7 @@ def transform_function(img_dict, mask_ratio=None):
             x_max = int(0.85 * min_dim)
             y_min = int(0.15 * min_dim)
             y_max = int(0.85 * min_dim)
+            curr_class = -1
         else:
             curr_bbox, curr_class = random.choice(acceptable_bboxes)
             x_min, y_min, x_max, y_max = [int(coord) for coord in curr_bbox]
