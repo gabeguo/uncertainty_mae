@@ -323,8 +323,8 @@ def main(args):
     for idx, img_dict in tqdm(enumerate(test_loader)):
         if idx < args.start_from:
             continue
-        print(f"img {idx}:", [CATEGORIES[x] for x in img_dict['masked_classes']])
-        print(f"img {idx}:", [CATEGORIES[x] for x in img_dict['classes']])
+        print(f"img {idx}:", [CATEGORIES[x] for x in img_dict['masked_classes'] if x >= 0])
+        print(f"img {idx}:", [CATEGORIES[x] for x in img_dict['classes'] if x >= 0])
         if -1 in img_dict['masked_classes']:
             print('SKIP: invalid class!')
             continue
