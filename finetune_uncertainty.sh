@@ -4,15 +4,16 @@ python main_finetune.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
     --nb_classes 1000 \
-    --output_dir /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/finetune/799 \
+    --output_dir /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/imagenet_finetune_diffParams/799 \
     --batch_size 256 \
     --accum_iter 2 \
-    --blr 1e-3 \
-    --layer_decay 0.75 \
+    --blr 5e-4 \
+    --layer_decay 0.65 \
     --drop_path 0.1 \
     --log_dir /local/zemel/gzg2104/logs \
     --wandb_project linprobe_imagenet \
     --device cuda \
     --num_workers 8 \
     --master_port 12358 \
-    --log_freq 5
+    --log_freq 5 \
+    --resume /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/imagenet_finetune_diffParams/799/checkpoint-95.pth
