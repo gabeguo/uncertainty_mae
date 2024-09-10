@@ -236,20 +236,11 @@ def create_test_loader():
 
     return test_loader
 
-def randomize_mask_layout(mask_layout):
-    rn = random.random()
-    assert 0 <= rn <= 1
-    if 0 <= rn <= 0.2:
-        mask_layout[0:7, 0:7] = 0
-    elif 0.2 < rn <= 0.4:
-        mask_layout[0:7, 7:14] = 0
-    elif 0.4 < rn <= 0.6:
-        mask_layout[7:14, 0:7] = 0
-    elif 0.6 < rn <= 0.8:
-        mask_layout[7:14, 7:14] = 0
-    else:
-        mask_layout[4:11, 3:10] = 0
-
+def randomize_mask_layout(mask_layout, mask_ratio=0.75):
+    all_indices = [(i, j) for i in range(mask_layout.shape[0]) for j in range(mask_layout.shape[1])]
+    random.shuffle(all_indices)
+    for i, j in all_indices[:int(mask_ratio * len(all_indices))]:
+        mask_layout[i, j] = 0
     return
 
 def get_mask_indices(mask_layout):
@@ -349,7 +340,7 @@ def main(args):
                 or torch.sum(mask_layout) > (1 - args.min_mask_ratio) * 14 * 14 \
                 or torch.sum(mask_layout) < (1 - args.max_mask_ratio) * 14 * 14:
             mask_layout = torch.ones(14, 14).to(device=img.device)
-            randomize_mask_layout(mask_layout)
+            randomize_mask_layout(mask_layout, mask_ratio=0.75)
             mask_layout = mask_layout.reshape(1, 14, 14)
 
         keep_indices, mask_indices = get_mask_indices(mask_layout)
