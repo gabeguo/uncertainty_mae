@@ -10,9 +10,9 @@ def plot_images(args, images):
 
     plt.rcParams.update({'font.size': 18})
 
-    axarr[0, 0].set_title('Original')
-    axarr[0, 1].set_title('Masked')
-    axarr[0, 2].set_title('MAE (Baseline)')
+    axarr[0, 0].set_title('Original\n')
+    axarr[0, 1].set_title('Masked\n')
+    axarr[0, 2].set_title('MAE (Baseline)\n')
     for _c in range(args.n_samples):
         axarr[0, 3 + _c].set_title(f'Partial VAE,\nSample {_c}')
     
@@ -43,7 +43,8 @@ def plot_images(args, images):
         wspace=0.05, hspace=0.05)
 
     os.makedirs(args.output_dir, exist_ok=True)
-    plt.savefig(os.path.join(args.output_dir, 'dummy.png'))
+    plt.savefig(os.path.join(args.output_dir, 'collated.png'))
+    plt.savefig(os.path.join(args.output_dir, 'collated.pdf'))
 
     return
 
@@ -73,7 +74,7 @@ def parse_args():
     parser.add_argument('--n_rows', default=8, type=int)
     parser.add_argument('--n_samples', default=4, type=int)
     parser.add_argument('--image_dir', default='/local/zemel/gzg2104/outputs/09_07_24/lessCrop', type=str)
-    parser.add_argument('--output_dir', default='ddummy.png', type=str)
+    parser.add_argument('--output_dir', default='/local/zemel/gzg2104/outputs/09_07_24/lessCrop', type=str)
     return parser.parse_args()
 
 if __name__ == "__main__":
