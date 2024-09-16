@@ -178,6 +178,11 @@ def run_one_image(args, img, model, img_idx,
     masked_save_path = os.path.join(get_mask_dir(args), f"{img_idx}_mask_image.png")
     plt.tight_layout(pad=0)
     plt.savefig(masked_save_path)
+    # save hidden part
+    show_image((x * mask)[0], "", mean=mean, std=std)
+    hidden_save_path = os.path.join(get_hidden_dir(args), f"{img_idx}_hidden_portion.png")
+    plt.tight_layout(pad=0)
+    plt.savefig(hidden_save_path)
     # save original
     if not isinstance(model, UncertaintyMAE):
         show_image(x[0], "", mean=mean, std=std)
@@ -280,6 +285,9 @@ def get_infill_baseline_dir(args):
 def get_mask_dir(args):
     return os.path.join(args.save_dir, 'mask')
 
+def get_hidden_dir(args):
+    return os.path.join(args.save_dir, 'hidden')
+
 def get_class_data_dir(args):
     return os.path.join(args.save_dir, 'class_info')
 
@@ -292,6 +300,7 @@ def main(args):
     os.makedirs(get_infill_baseline_dir(args), exist_ok=True)
     os.makedirs(get_gt_dir(args), exist_ok=True)
     os.makedirs(get_mask_dir(args), exist_ok=True)
+    os.makedirs(get_hidden_dir(args), exist_ok=True)
     os.makedirs(get_class_data_dir(args), exist_ok=True)
 
     test_loader = create_test_loader()
