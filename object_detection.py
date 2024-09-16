@@ -228,7 +228,6 @@ def create_args():
     parser.add_argument('--output_dir', type=str)
     parser.add_argument('--box_score_thresh', type=float, default=0.7)
     parser.add_argument('--occurrence_prob_threshold', type=float, default=0.05)
-    parser.add_argument('--num_trials_inpaint', type=int, default=2)
 
     args = parser.parse_args()
 
