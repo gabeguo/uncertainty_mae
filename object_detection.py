@@ -267,7 +267,7 @@ def main(args):
         calc_precision_recall(args=args, 
         inpaint_dir=inpaint_ours_dir, objects_dir=objects_dir, co_occurrence=co_occurrence, 
         model=model)
-    precisions_baseline, recalls_baseline, precisions_dict_baseline, recalls_dict_baseline,
+    precisions_baseline, recalls_baseline, precisions_dict_baseline, recalls_dict_baseline, \
     precisions_zero_denominator_baseline, recalls_zero_denominator_baseline = \
         calc_precision_recall(args=args, 
         inpaint_dir=inpaint_baseline_dir, objects_dir=objects_dir, co_occurrence=co_occurrence, 
