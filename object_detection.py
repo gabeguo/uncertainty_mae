@@ -100,6 +100,8 @@ def calc_precision_recall(args, inpaint_dir, objects_dir, co_occurrence, model):
     recalls = list()
     precisions_dict = dict()
     recalls_dict = dict()
+    precisions_zero_denominator = list()
+    recalls_zero_denominator = list()
     img_num_to_predLabels = get_img_num_to_predLabels(args=args,
         inpaint_dir=inpaint_dir, model=model)
     # now calculate precision and recall per-image
@@ -124,15 +126,18 @@ def calc_precision_recall(args, inpaint_dir, objects_dir, co_occurrence, model):
                 fn += 1
         if tp + fp == 0:
             precisions.append(0)
+            precisions_zero_denominator.append(the_img_num)
         else:
             precisions.append(tp / (tp + fp))
         precisions_dict[the_img_num] = precisions[-1]
         if tp + fn == 0:
             recalls.append(0)
+            recalls_zero_denominator.append(the_img_num)
         else:
             recalls.append(tp / (tp + fn))
         recalls_dict[the_img_num] = recalls[-1]
-    return precisions, recalls, precisions_dict, recalls_dict
+    return precisions, recalls, precisions_dict, recalls_dict, \
+        precisions_zero_denominator, recalls_zero_denominator
 
 def get_objects_that_should_occur(args, img_num, objects_dir, co_occurrence):
     """
@@ -186,7 +191,9 @@ def save_co_occurrence(args, co_occurrence, name):
     return
 
 def save_stats(args, precisions_ours, recalls_ours, precisions_baseline, recalls_baseline,
-            precisions_dict_ours, recalls_dict_ours, precisions_dict_baseline, recalls_dict_baseline):
+            precisions_dict_ours, recalls_dict_ours, precisions_dict_baseline, recalls_dict_baseline,
+            precisions_zero_denominator_ours, recalls_zero_denominator_ours,
+            precisions_zero_denominator_baseline, recalls_zero_denominator_baseline):
     with open(os.path.join(args.output_dir, 'params.json'), 'w') as fout:
         json.dump(vars(args), fout, indent=4)
     with open(os.path.join(args.output_dir, 'precision_recall_by_img.json'), 'w') as fout:
@@ -194,28 +201,36 @@ def save_stats(args, precisions_ours, recalls_ours, precisions_baseline, recalls
             'precision_ours': precisions_dict_ours,
             'recall_ours': recalls_dict_ours,
             'precision_baseline': precisions_dict_baseline,
-            'recall_baseline': recalls_dict_baseline
+            'recall_baseline': recalls_dict_baseline,
+            'precision_zero_denom_ours': precisions_zero_denominator_ours,
+            'recall_zero_denom_ours': recalls_zero_denominator_ours,
+            'precision_zero_denom_baseline': precisions_zero_denominator_baseline,
+            'recall_zero_denom_baseline': recalls_zero_denominator_baseline
         }, fout, indent=4)
     with open(os.path.join(args.output_dir, 'results.json'), 'w') as fout:
         json.dump({
             'ours': {
                 'precision': {
                     'mean': np.mean(precisions_ours),
-                    'std': np.std(precisions_ours)
+                    'std': np.std(precisions_ours),
+                    'zero_denom': len(precisions_zero_denominator_ours)
                 },
                 'recall': {
                     'mean': np.mean(recalls_ours),
-                    'std': np.std(recalls_ours)
+                    'std': np.std(recalls_ours),
+                    'zero_denom': len(recalls_zero_denominator_ours)
                 }
             },
             'baseline': {
                 'precision': {
                     'mean': np.mean(precisions_baseline),
-                    'std': np.std(precisions_baseline)
+                    'std': np.std(precisions_baseline),
+                    'zero_denom': len(precisions_zero_denominator_baseline)
                 },
                 'recall': {
                     'mean': np.mean(recalls_baseline),
-                    'std': np.std(recalls_baseline)
+                    'std': np.std(recalls_baseline),
+                    'zero_denom': len(recalls_zero_denominator_baseline)
                 }
             }
         }, fout, indent=4)
@@ -247,11 +262,13 @@ def main(args):
     model = model.cuda()
 
     co_occurrence = calc_gt_co_occurrence(args, objects_dir)
-    precisions_ours, recalls_ours, precisions_dict_ours, recalls_dict_ours = \
+    precisions_ours, recalls_ours, precisions_dict_ours, recalls_dict_ours, \
+    precisions_zero_denominator_ours, recalls_zero_denominator_ours = \
         calc_precision_recall(args=args, 
         inpaint_dir=inpaint_ours_dir, objects_dir=objects_dir, co_occurrence=co_occurrence, 
         model=model)
-    precisions_baseline, recalls_baseline, precisions_dict_baseline, recalls_dict_baseline = \
+    precisions_baseline, recalls_baseline, precisions_dict_baseline, recalls_dict_baseline,
+    precisions_zero_denominator_baseline, recalls_zero_denominator_baseline = \
         calc_precision_recall(args=args, 
         inpaint_dir=inpaint_baseline_dir, objects_dir=objects_dir, co_occurrence=co_occurrence, 
         model=model)
@@ -260,7 +277,9 @@ def main(args):
     save_stats(args, precisions_ours=precisions_ours, recalls_ours=recalls_ours,
             precisions_baseline=precisions_baseline, recalls_baseline=recalls_baseline,
             precisions_dict_ours=precisions_dict_ours, recalls_dict_ours=recalls_dict_ours,
-            precisions_dict_baseline=precisions_dict_baseline, recalls_dict_baseline=recalls_dict_baseline)
+            precisions_dict_baseline=precisions_dict_baseline, recalls_dict_baseline=recalls_dict_baseline,
+            precisions_zero_denominator_ours=precisions_zero_denominator_ours, recalls_zero_denominator_ours=recalls_zero_denominator_ours,
+            precisions_zero_denominator_baseline=precisions_zero_denominator_baseline, recalls_zero_denominator_baseline=recalls_zero_denominator_baseline)
 
     return
 
