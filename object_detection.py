@@ -20,7 +20,7 @@ from pprint import pprint
 
 CATEGORIES = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT.meta["categories"]
 
-def process_image(args, img_path, model):
+def process_image(args, img_path, model, is_beit=False):
     img = read_image(img_path)
     img = img[:3,:,:]
 
@@ -41,7 +41,7 @@ def process_image(args, img_path, model):
                             width=4, font_size=45)
     im = to_pil_image(box.detach())
     # im.show()
-    curr_output_dir = os.path.join(args.output_dir, 'images')
+    curr_output_dir = os.path.join(args.output_dir, f'images{"_beit" if is_beit else ""}')
     os.makedirs(curr_output_dir, exist_ok=True)
     output_path = os.path.join(curr_output_dir, os.path.basename(img_path))
     im.save(output_path)
@@ -79,7 +79,7 @@ def sanity_check_co_occurrence(co_occurrence):
     assert 0 in diagonals
     return
 
-def get_img_num_to_predLabels(args, inpaint_dir, model):
+def get_img_num_to_predLabels(args, inpaint_dir, model, is_beit=False):
     # info we'll need later
     img_num_to_predLabels = dict()
     # go through all the images first
@@ -89,14 +89,14 @@ def get_img_num_to_predLabels(args, inpaint_dir, model):
         # if the_img_num > 50:
         #     continue
         # detect what the inpainted object is ONLY
-        label_nums, prediction = process_image(args, img_path=img_path, model=model)
+        label_nums, prediction = process_image(args, img_path=img_path, model=model, is_beit=is_beit)
         if the_img_num not in img_num_to_predLabels:
             img_num_to_predLabels[the_img_num] = set()
         # TODO: only have most likely?
         img_num_to_predLabels[the_img_num].update(label_nums)
     return img_num_to_predLabels
 
-def calc_precision_recall(args, inpaint_dir, objects_dir, co_occurrence, model):
+def calc_precision_recall(args, inpaint_dir, objects_dir, co_occurrence, model, is_beit=False):
     precisions = list()
     recalls = list()
     precisions_dict = dict()
@@ -104,7 +104,7 @@ def calc_precision_recall(args, inpaint_dir, objects_dir, co_occurrence, model):
     precisions_zero_denominator = list()
     recalls_zero_denominator = list()
     img_num_to_predLabels = get_img_num_to_predLabels(args=args,
-        inpaint_dir=inpaint_dir, model=model)
+        inpaint_dir=inpaint_dir, model=model, is_beit=is_beit)
     # now calculate precision and recall per-image
     for the_img_num in img_num_to_predLabels:
         tp = 0
@@ -137,8 +137,14 @@ def calc_precision_recall(args, inpaint_dir, objects_dir, co_occurrence, model):
         else:
             recalls.append(tp / (tp + fn))
         recalls_dict[the_img_num] = recalls[-1]
-    return precisions, recalls, precisions_dict, recalls_dict, \
-        precisions_zero_denominator, recalls_zero_denominator
+    return {
+        "precisions":precisions, 
+        "recalls":recalls, 
+        "precisions_dict":precisions_dict, 
+        "recalls_dict":recalls_dict,
+        "precisions_zero_denominator":precisions_zero_denominator, 
+        "recalls_zero_denominator":recalls_zero_denominator
+    }
 
 def get_objects_that_should_occur(args, img_num, objects_dir, co_occurrence):
     """
@@ -191,50 +197,35 @@ def save_co_occurrence(args, co_occurrence, name):
 
     return
 
-def save_stats(args, precisions_ours, recalls_ours, precisions_baseline, recalls_baseline,
-            precisions_dict_ours, recalls_dict_ours, precisions_dict_baseline, recalls_dict_baseline,
-            precisions_zero_denominator_ours, recalls_zero_denominator_ours,
-            precisions_zero_denominator_baseline, recalls_zero_denominator_baseline):
+def save_stats(args, results):
     with open(os.path.join(args.output_dir, 'params.json'), 'w') as fout:
         json.dump(vars(args), fout, indent=4)
     with open(os.path.join(args.output_dir, 'precision_recall_by_img.json'), 'w') as fout:
-        json.dump({
-            'precision_ours': precisions_dict_ours,
-            'recall_ours': recalls_dict_ours,
-            'precision_baseline': precisions_dict_baseline,
-            'recall_baseline': recalls_dict_baseline,
-            'precision_zero_denom_ours': precisions_zero_denominator_ours,
-            'recall_zero_denom_ours': recalls_zero_denominator_ours,
-            'precision_zero_denom_baseline': precisions_zero_denominator_baseline,
-            'recall_zero_denom_baseline': recalls_zero_denominator_baseline
-        }, fout, indent=4)
+        precision_recall_by_img_dict = dict()
+        for method in results:
+            precision_recall_by_img_dict[method] = {
+                "precision_by_image": results[method]["precisions_dict"],
+                "recall_by_image": results[method]["recalls_dict"],
+                "precisions_zero_denominator": results[method]["precisions_zero_denominator"],
+                "recalls_zero_denominator": results[method]["recalls_zero_denominator"]
+            }
+        json.dump(precision_recall_by_img_dict, fout, indent=4)
     with open(os.path.join(args.output_dir, 'results.json'), 'w') as fout:
-        json.dump({
-            'ours': {
-                'precision': {
-                    'mean': np.mean(precisions_ours),
-                    'std': np.std(precisions_ours),
-                    'zero_denom': len(precisions_zero_denominator_ours)
+        aggregate_results = dict()
+        for method in results:
+            aggregate_results[method] = {
+                "precision": {
+                    "mean": np.mean(results[method]["precisions"]),
+                    "std": np.std(results[method]["precisions"]),
+                    "zero_denom": len(results[method]["precisions_zero_denominator"])
                 },
-                'recall': {
-                    'mean': np.mean(recalls_ours),
-                    'std': np.std(recalls_ours),
-                    'zero_denom': len(recalls_zero_denominator_ours)
-                }
-            },
-            'baseline': {
-                'precision': {
-                    'mean': np.mean(precisions_baseline),
-                    'std': np.std(precisions_baseline),
-                    'zero_denom': len(precisions_zero_denominator_baseline)
-                },
-                'recall': {
-                    'mean': np.mean(recalls_baseline),
-                    'std': np.std(recalls_baseline),
-                    'zero_denom': len(recalls_zero_denominator_baseline)
+                "recall": {
+                    "mean": np.mean(results[method]["recalls"]),
+                    "std": np.std(results[method]["recalls"]),
+                    "zero_denom": len(results[method]["recalls_zero_denominator"])
                 }
             }
-        }, fout, indent=4)
+        json.dump(aggregate_results, fout, indent=4)
 
     return
 
@@ -256,6 +247,7 @@ def main(args):
     # gt_dir = os.path.join(args.input_dir, 'gt')
     inpaint_ours_dir = os.path.join(args.input_dir, 'infillOnly_ours')
     inpaint_baseline_dir = os.path.join(args.input_dir, 'infillOnly_baseline')
+    inpaint_beit_dir = os.path.join(args.input_dir, 'infillOnly_beit')
 
     weights = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT
     model = fasterrcnn_resnet50_fpn_v2(weights=weights, box_score_thresh=args.box_score_thresh)
@@ -263,24 +255,21 @@ def main(args):
     model = model.cuda()
 
     co_occurrence = calc_gt_co_occurrence(args, objects_dir)
-    precisions_ours, recalls_ours, precisions_dict_ours, recalls_dict_ours, \
-    precisions_zero_denominator_ours, recalls_zero_denominator_ours = \
+    our_results = \
         calc_precision_recall(args=args, 
         inpaint_dir=inpaint_ours_dir, objects_dir=objects_dir, co_occurrence=co_occurrence, 
         model=model)
-    precisions_baseline, recalls_baseline, precisions_dict_baseline, recalls_dict_baseline, \
-    precisions_zero_denominator_baseline, recalls_zero_denominator_baseline = \
+    mae_results = \
         calc_precision_recall(args=args, 
         inpaint_dir=inpaint_baseline_dir, objects_dir=objects_dir, co_occurrence=co_occurrence, 
         model=model)
+    beit_results = \
+        calc_precision_recall(args=args, 
+        inpaint_dir=inpaint_beit_dir, objects_dir=objects_dir, co_occurrence=co_occurrence, 
+        model=model, is_beit=True)
     
     save_co_occurrence(args, co_occurrence, 'co_occurrence_gt')
-    save_stats(args, precisions_ours=precisions_ours, recalls_ours=recalls_ours,
-            precisions_baseline=precisions_baseline, recalls_baseline=recalls_baseline,
-            precisions_dict_ours=precisions_dict_ours, recalls_dict_ours=recalls_dict_ours,
-            precisions_dict_baseline=precisions_dict_baseline, recalls_dict_baseline=recalls_dict_baseline,
-            precisions_zero_denominator_ours=precisions_zero_denominator_ours, recalls_zero_denominator_ours=recalls_zero_denominator_ours,
-            precisions_zero_denominator_baseline=precisions_zero_denominator_baseline, recalls_zero_denominator_baseline=recalls_zero_denominator_baseline)
+    save_stats(args, results={"ours":our_results, "mae":mae_results, "beit":beit_results})
 
     return
 
