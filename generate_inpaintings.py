@@ -122,6 +122,10 @@ def run_one_image(args, img, model, img_idx,
 
     # visualize the mask
     mask = mask.detach()
+    assert mask.shape == (1, 196)
+    mask_tensor_save_path = os.path.join(get_mask_tensor_dir(args), f'{img_idx}_mask_tensor.pt')
+    torch.save(mask, mask_tensor_save_path)
+
     if isinstance(model, UncertaintyMAE):
         mask = mask.unsqueeze(-1).repeat(1, 1, model.visible_mae.patch_embed.patch_size[0]**2 *3)  # (N, H*W, p*p*3)
         mask = model.visible_mae.unpatchify(mask)  # 1 is removing, 0 is keeping 
@@ -291,6 +295,9 @@ def get_hidden_dir(args):
 def get_class_data_dir(args):
     return os.path.join(args.save_dir, 'class_info')
 
+def get_mask_tensor_dir(args):
+    return os.path.join(args.save_dir, 'mask_tensor')
+
 def main(args):
     os.makedirs(args.save_dir, exist_ok=True)
     os.makedirs(get_img_dir(args), exist_ok=True)
@@ -302,6 +309,7 @@ def main(args):
     os.makedirs(get_mask_dir(args), exist_ok=True)
     os.makedirs(get_hidden_dir(args), exist_ok=True)
     os.makedirs(get_class_data_dir(args), exist_ok=True)
+    os.makedirs(get_mask_tensor_dir(args), exist_ok=True)
 
     test_loader = create_test_loader()
 
