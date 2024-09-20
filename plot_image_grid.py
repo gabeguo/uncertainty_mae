@@ -52,29 +52,40 @@ def get_images(args):
     all_image_numbers = [int(filename.split('_')[0]) \
         for filename in os.listdir(os.path.join(args.image_dir, 'class_info'))]
     all_image_numbers.sort()
-    desired_img_nums = all_image_numbers[0:10*args.n_rows:10]
+    desired_img_nums = all_image_numbers[70:70+10*args.n_rows:10] # [103, 118]
 
     images = list()
     for the_num in desired_img_nums:
+        if args.object_detection_dir is None:
+            baseline_img = plt.imread(os.path.join(args.image_dir,
+                "inpaint_baseline", f"{the_num}_v_inpainted.png"))
+            inpaint_ours = [plt.imread(os.path.join(args.image_dir,
+                "inpaint_ours", f"{the_num}_{sample_idx}_inpainted.png")) \
+                for sample_idx in range(args.n_samples)]
+        else:
+            baseline_img = plt.imread(os.path.join(args.object_detection_dir,
+                "images", f"{the_num}_v_inpainted.png"))
+            inpaint_ours = [plt.imread(os.path.join(args.object_detection_dir,
+                "images", f"{the_num}_{sample_idx}_inpainted.png")) \
+                for sample_idx in range(args.n_samples)]
+
         images.append({
             "orig": plt.imread(os.path.join(args.image_dir, 
                 "gt", f"{the_num}_gt_image.png")),
             "masked": plt.imread(os.path.join(args.image_dir,
                 "mask", f"{the_num}_mask_image.png")),
-            "baseline": plt.imread(os.path.join(args.image_dir,
-                "inpaint_baseline", f"{the_num}_v_inpainted.png")),
-            "ours": [plt.imread(os.path.join(args.image_dir,
-                "inpaint_ours", f"{the_num}_{sample_idx}_inpainted.png")) \
-                for sample_idx in range(args.n_samples)]
+            "baseline": baseline_img,
+            "ours": inpaint_ours
         })
     return images
 
 def parse_args():
     parser = argparse.ArgumentParser('plot image grid', add_help=False)
-    parser.add_argument('--n_rows', default=8, type=int)
+    parser.add_argument('--n_rows', default=6, type=int)
     parser.add_argument('--n_samples', default=4, type=int)
     parser.add_argument('--image_dir', default='/local/zemel/gzg2104/outputs/09_07_24/lessCrop', type=str)
     parser.add_argument('--output_dir', default='/local/zemel/gzg2104/outputs/09_07_24/lessCrop', type=str)
+    parser.add_argument('--object_detection_dir', default=None, type=str)
     return parser.parse_args()
 
 if __name__ == "__main__":
