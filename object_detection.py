@@ -36,8 +36,9 @@ def process_image(args, img_path, model):
     label_nums = [i for i in prediction["labels"]]
     box = draw_bounding_boxes(img, boxes=prediction["boxes"],
                             labels=labels,
-                            colors="red",
-                            width=4, font_size=30)
+                            colors="purple",
+                            font='/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf',
+                            width=4, font_size=45)
     im = to_pil_image(box.detach())
     # im.show()
     curr_output_dir = os.path.join(args.output_dir, 'images')
