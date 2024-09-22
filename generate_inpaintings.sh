@@ -1,4 +1,4 @@
-img_dir=/local/zemel/gzg2104/outputs/09_07_24/lessCrop
+img_dir=/local/zemel/gzg2104/outputs/09_19_24/four_samples_save_mask
 
 # python generate_inpaintings.py \
 #     --uncertainty_weights /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-799.pth \
@@ -11,6 +11,6 @@ img_dir=/local/zemel/gzg2104/outputs/09_07_24/lessCrop
 
 python object_detection.py \
     --input_dir $img_dir \
-    --output_dir /local/zemel/gzg2104/outputs/09_19_24/four_samples_objectDetection_withZeroCount \
+    --output_dir /local/zemel/gzg2104/outputs/09_19_24/four_samples_save_mask_objectDetection_maskedBEiT \
     --box_score_thresh 0.6 \
     --occurrence_prob_threshold 0.1
