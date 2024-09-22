@@ -86,6 +86,9 @@ def get_img_num_to_predLabels(args, inpaint_dir, model, is_beit=False):
     for img_name in tqdm(os.listdir(inpaint_dir)):
         img_path = os.path.join(inpaint_dir, img_name)
         the_img_num = get_img_num(img_name)
+        if is_beit and args.single_sample_beit:
+            if "_0_inpainted.png" not in img_path:
+                continue
         # if the_img_num > 50:
         #     continue
         # detect what the inpainted object is ONLY
@@ -235,6 +238,7 @@ def create_args():
     parser.add_argument('--output_dir', type=str)
     parser.add_argument('--box_score_thresh', type=float, default=0.7)
     parser.add_argument('--occurrence_prob_threshold', type=float, default=0.05)
+    parser.add_argument('--single_sample_beit', action='store_true')
 
     args = parser.parse_args()
 
