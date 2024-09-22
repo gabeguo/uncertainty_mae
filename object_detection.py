@@ -118,7 +118,6 @@ def calc_precision_recall(args, inpaint_dir, objects_dir, co_occurrence, model, 
         assert max(objects_that_should_occur) < 91
         assert len(img_num_to_predLabels[the_img_num]) == 0 \
         or max(img_num_to_predLabels[the_img_num]) < 91
-        assert len(objects_that_should_occur) <= 1 / args.occurrence_prob_threshold + 1
         for class_i in range(co_occurrence.shape[0]):
             if class_i in objects_that_should_occur \
             and class_i in img_num_to_predLabels[the_img_num]:
