@@ -239,6 +239,7 @@ def create_args():
     parser.add_argument('--box_score_thresh', type=float, default=0.7)
     parser.add_argument('--occurrence_prob_threshold', type=float, default=0.05)
     parser.add_argument('--single_sample_beit', action='store_true')
+    parser.add_argument('--skip_mae', action='store_true')
 
     args = parser.parse_args()
 
@@ -259,21 +260,28 @@ def main(args):
     model = model.cuda()
 
     co_occurrence = calc_gt_co_occurrence(args, objects_dir)
-    our_results = \
-        calc_precision_recall(args=args, 
-        inpaint_dir=inpaint_ours_dir, objects_dir=objects_dir, co_occurrence=co_occurrence, 
-        model=model)
-    mae_results = \
-        calc_precision_recall(args=args, 
-        inpaint_dir=inpaint_baseline_dir, objects_dir=objects_dir, co_occurrence=co_occurrence, 
-        model=model)
+    if args.skip_mae:
+        print("Skip MAE!")
+    else: # do the MAE
+        our_results = \
+            calc_precision_recall(args=args, 
+            inpaint_dir=inpaint_ours_dir, objects_dir=objects_dir, co_occurrence=co_occurrence, 
+            model=model)
+        mae_results = \
+            calc_precision_recall(args=args, 
+            inpaint_dir=inpaint_baseline_dir, objects_dir=objects_dir, co_occurrence=co_occurrence, 
+            model=model)
+    print("BEiT!")
     beit_results = \
         calc_precision_recall(args=args, 
         inpaint_dir=inpaint_beit_dir, objects_dir=objects_dir, co_occurrence=co_occurrence, 
         model=model, is_beit=True)
     
     save_co_occurrence(args, co_occurrence, 'co_occurrence_gt')
-    save_stats(args, results={"ours":our_results, "mae":mae_results, "beit":beit_results})
+    if args.skip_mae:
+        save_stats(args, results={"beit":beit_results})
+    else:
+        save_stats(args, results={"ours":our_results, "mae":mae_results, "beit":beit_results})
 
     return
 
