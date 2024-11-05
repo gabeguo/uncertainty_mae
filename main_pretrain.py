@@ -32,7 +32,7 @@ import models_mae
 from multi_head_mae import MultiHeadMAE
 from uncertainty_mae import UncertaintyMAE
 
-from engine_pretrain import train_one_epoch
+from engine_pretrain import train_one_epoch, create_discriminator
 from dataset_generation.emoji_dataset import EmojiDataset
 
 import coco_transforms
@@ -82,6 +82,18 @@ class Trainer:
         self.model_without_ddp = model_without_ddp
         self.args = args
 
+        if args.gan:
+            # TODO: add weight decay?
+            # optim_factory.add_weight_decay(model.visible_mae, args.weight_decay)
+            self.netD = create_discriminator(args, self.model)
+            self.netD = DDP(self.netD, device_ids=[gpu_id])
+            self.optimizerD = torch.optim.AdamW(self.netD.parameters(), lr=args.lr, betas=(0.9, 0.95), eps=args.eps)
+            self.optimizerG = optim.Adam(self.model.parameters(), lr=lr, betas=(0.9, 0.95), eps=args.eps)
+        else:
+            self.netD = None
+            self.optimizerD = None
+            self.optimizerG = None
+
         return
 
     def _run_epoch(self, epoch):
@@ -92,7 +104,8 @@ class Trainer:
             optimizer=self.optimizer, device=self.gpu_id, epoch=epoch, loss_scaler=self.loss_scaler,
             max_norm=5, # Added this part
             log_writer=self.log_writer,
-            args=self.args
+            args=self.args,
+            netD=self.netD, optimizerD=self.optimizerD, optimizerG=self.optimizerG
         )
 
         if self.gpu_id == 0:
@@ -248,6 +261,13 @@ def get_args_parser():
     parser.add_argument('--disable_wandb', action='store_true')
     parser.add_argument('--wandb_project', type=str, default='pretrain_mae_new')
                     
+    # GAN params
+    parser.add_argument('--gan', action='store_true',
+                        help='Whether to do GAN training')
+    parser.add_argument('--discriminator_drop_path', type=float, default=0.1, metavar='PCT',
+                        help='Drop path rate (default: 0.1)')
+    parser.add_argument('--discriminator_global_pool', action='store_true')
+    parser.set_defaults(global_pool=True)
 
     return parser
 
