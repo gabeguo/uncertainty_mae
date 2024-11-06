@@ -7,13 +7,13 @@ CUDA_VISIBLE_DEVICES=7 python main_pretrain.py \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
     --batch_size 256 \
     --blr 1.5e-4 \
-    --accum_iter 1 \
+    --accum_iter 2 \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
-    --warmup_epochs 10 \
-    --epochs 100 \
-    --log_freq 10 \
+    --warmup_epochs 5 \
+    --epochs 25 \
+    --log_freq 5 \
     --num_workers 8 \
     --vae \
     --kld_beta 30 \
