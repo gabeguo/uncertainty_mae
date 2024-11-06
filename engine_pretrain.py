@@ -19,6 +19,8 @@ import util.lr_sched as lr_sched
 from util.pos_embed import interpolate_pos_embed
 from uncertainty_mae import UncertaintyMAE
 
+import models_vit
+
 REAL_LABEL = 1.
 FAKE_LABEL = 0.
 
@@ -97,7 +99,7 @@ def train_one_epoch(model: torch.nn.Module,
 
         if args.gan:
             loss = 0
-            calc_gan_loss(args, gt=samples, fake=pred, netG=model, netD=netD, optimizerG=optimizerG, optimizerD=optimizerD, device=device, accum_iter=accum_iter, data_iter_step=data_iter_step, max_norm=max_norm)
+            calc_gan_loss(args, gt=samples, fake=pred, netG=model, netD=netD, optimizerG=optimizerG, optimizerD=optimizerD, device=device, accum_iter=accum_iter, data_iter_step=data_iter_step, max_norm=max_norm, loss_scaler=loss_scaler)
         else:
             loss /= accum_iter
             if args.mixed_precision:
@@ -145,8 +147,14 @@ def train_one_epoch(model: torch.nn.Module,
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 
+# TODO: freeze encoder?
 def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
-    accum_iter, data_iter_step, max_norm):
+    accum_iter, data_iter_step, max_norm, loss_scaler):
+    fake = netG.module.visible_mae.unpatchify(fake).to(dtype=gt.dtype)
+
+    print("gt shape:", gt.shape)
+    print("fake shape:", fake.shape)
+
     assert args.gan
 
     # Thanks https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html
@@ -165,21 +173,21 @@ def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
     print(output.shape)
     # TODO: deal with shapes
     # Calculate loss on all-real batch
-    errD_real = torch.nn.functional.binary_cross_entropy(output, label)
+    errD_real = torch.nn.functional.binary_cross_entropy_with_logits(input=output, target=label)
 
     # Calculate gradients for D in backward pass
     # errD_real.backward()
-    backprop_loss(args, loss=errD_real, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netD, optimizer=optimizerD, max_norm=max_norm)
+    backprop_loss(args, loss=errD_real, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netD, optimizer=optimizerD, max_norm=max_norm, loss_scaler=loss_scaler)
     D_x = output.mean().item()
 
     label.fill_(FAKE_LABEL)
     # Classify all fake batch with D
     output = netD(fake.detach()).view(-1)
     # Calculate D's loss on the all-fake batch
-    errD_fake = torch.nn.functional.binary_cross_entropy(output, label)
+    errD_fake = torch.nn.functional.binary_cross_entropy_with_logits(input=output, target=label)
     # Calculate the gradients for this batch, accumulated (summed) with previous gradients
     # errD_fake.backward()
-    backprop_loss(args, loss=errD_fake, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netD, optimizer=optimizerD, max_norm=max_norm)
+    backprop_loss(args, loss=errD_fake, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netD, optimizer=optimizerD, max_norm=max_norm, loss_scaler=loss_scaler)
     D_G_z1 = output.mean().item()
     # Compute error of D as sum over the fake and the real batches
     errD = errD_real + errD_fake
@@ -195,10 +203,10 @@ def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
     # Since we just updated D, perform another forward pass of all-fake batch through D
     output = netD(fake).view(-1)
     # Calculate G's loss based on this output
-    errG = torch.nn.functional.binary_cross_entropy(output, label)
+    errG = torch.nn.functional.binary_cross_entropy_with_logits(input=output, target=label)
     # Calculate gradients for G
     # errG.backward()
-    backprop_loss(args, loss=errG, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netG, optimizer=optimizerG, max_norm=max_norm)
+    backprop_loss(args, loss=errG, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netG, optimizer=optimizerG, max_norm=max_norm, loss_scaler=loss_scaler)
     D_G_z2 = output.mean().item()
     # Update G
     # optimizerG.step()
@@ -206,7 +214,7 @@ def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
 
     return
 
-def backprop_loss(args, loss, accum_iter, data_iter_step, model, optimizer, max_norm):
+def backprop_loss(args, loss, accum_iter, data_iter_step, model, optimizer, max_norm, loss_scaler):
     loss /= accum_iter
     if args.mixed_precision:
         loss_scaler(loss, optimizer, clip_grad=max_norm,
@@ -226,12 +234,12 @@ def step_optimizer(args, optimizer, accum_iter, data_iter_step):
 def create_discriminator(args, mae):
     # since we only test base
     discriminator = models_vit.__dict__['vit_base_patch16'](
-        num_classes=2,
+        num_classes=1,
         drop_path_rate=args.discriminator_drop_path,
         global_pool=args.discriminator_global_pool,
     )
 
-    checkpoint_model = mae.visible_mae.state_dict()
+    checkpoint_model = mae.module.visible_mae.state_dict()
 
     # interpolate position embedding (as in main_finetune.py)
     interpolate_pos_embed(discriminator, checkpoint_model)

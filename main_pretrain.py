@@ -29,6 +29,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 
 import models_mae
+import models_vit
 from multi_head_mae import MultiHeadMAE
 from uncertainty_mae import UncertaintyMAE
 
@@ -86,9 +87,11 @@ class Trainer:
             # TODO: add weight decay?
             # optim_factory.add_weight_decay(model.visible_mae, args.weight_decay)
             self.netD = create_discriminator(args, self.model)
+            self.netD = self.netD.to(gpu_id)
             self.netD = DDP(self.netD, device_ids=[gpu_id])
             self.optimizerD = torch.optim.AdamW(self.netD.parameters(), lr=args.lr, betas=(0.9, 0.95), eps=args.eps)
-            self.optimizerG = optim.Adam(self.model.parameters(), lr=lr, betas=(0.9, 0.95), eps=args.eps)
+            self.optimizerG = torch.optim.Adam(self.model.parameters(), lr=args.lr, betas=(0.9, 0.95), eps=args.eps)
+            args.start_epoch = 0
         else:
             self.netD = None
             self.optimizerD = None
