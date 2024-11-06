@@ -99,7 +99,7 @@ def train_one_epoch(model: torch.nn.Module,
 
         if args.gan:
             loss = 0
-            calc_gan_loss(args, gt=samples, fake=pred, netG=model, netD=netD, optimizerG=optimizerG, optimizerD=optimizerD, device=device, accum_iter=accum_iter, data_iter_step=data_iter_step, max_norm=max_norm, loss_scaler=loss_scaler)
+            errD_real, errD_fake, errG = calc_gan_loss(args, gt=samples, fake=pred, netG=model, netD=netD, optimizerG=optimizerG, optimizerD=optimizerD, device=device, accum_iter=accum_iter, data_iter_step=data_iter_step, max_norm=max_norm, loss_scaler=loss_scaler)
         else:
             loss /= accum_iter
             if args.mixed_precision:
@@ -119,8 +119,13 @@ def train_one_epoch(model: torch.nn.Module,
 
         metric_logger.update(loss=loss_value)
         if isinstance(model, UncertaintyMAE) or isinstance(model.module, UncertaintyMAE):
-            metric_logger.update(reconstruction_loss=reconstruction_loss)
-            metric_logger.update(kld_loss=kld_loss)
+            if args.gan:
+                metric_logger.update(errD_real=errD_real)
+                metric_logger.update(errD_fake=errD_fake)
+                metric_logger.update(errG=errG)
+            else:
+                metric_logger.update(reconstruction_loss=reconstruction_loss)
+                metric_logger.update(kld_loss=kld_loss)
 
         lr = optimizer.param_groups[0]["lr"]
         metric_logger.update(lr=lr)
@@ -137,8 +142,13 @@ def train_one_epoch(model: torch.nn.Module,
             This calibrates different curves when batch size changes.
             """
             epoch_1000x = int((data_iter_step / len(data_loader) + epoch) * 1000)
-            log_writer.add_scalar('train_loss', loss_value_reduce, epoch_1000x)
-            log_writer.add_scalar('lr', lr, epoch_1000x)
+            if args.gan:
+                log_writer.add_scalar('errD_fake', errD_fake, epoch_1000x)
+                log_writer.add_scalar('errD_real', errD_real, epoch_1000x)
+                log_writer.add_scalar('errG', errG, epoch_1000x)
+            else:
+                log_writer.add_scalar('train_loss', loss_value_reduce, epoch_1000x)
+                log_writer.add_scalar('lr', lr, epoch_1000x)
 
 
     # gather the stats from all processes
@@ -151,9 +161,6 @@ def train_one_epoch(model: torch.nn.Module,
 def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
     accum_iter, data_iter_step, max_norm, loss_scaler):
     fake = netG.module.visible_mae.unpatchify(fake).to(dtype=gt.dtype)
-
-    print("gt shape:", gt.shape)
-    print("fake shape:", fake.shape)
 
     assert args.gan
 
@@ -170,7 +177,6 @@ def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
     label = torch.full((b_size,), REAL_LABEL, dtype=torch.float, device=device)
     # Forward pass real batch through D
     output = netD(real_cpu).view(-1)
-    print(output.shape)
     # TODO: deal with shapes
     # Calculate loss on all-real batch
     errD_real = torch.nn.functional.binary_cross_entropy_with_logits(input=output, target=label)
@@ -212,7 +218,11 @@ def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
     # optimizerG.step()
     step_optimizer(args=args, optimizer=optimizerG, accum_iter=accum_iter, data_iter_step=data_iter_step)
 
-    return
+    ############################
+    # (3) Calculate metrics
+    ###########################
+
+    return errD_real, errD_fake, errG
 
 def backprop_loss(args, loss, accum_iter, data_iter_step, model, optimizer, max_norm, loss_scaler):
     loss /= accum_iter
