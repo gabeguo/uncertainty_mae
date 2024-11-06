@@ -2,7 +2,7 @@ output_path=/local/zemel/gzg2104/_imagenet_models/11_06_24/gan_lambda_1
 
 echo "train gan!"
 
-CUDA_VISIBLE_DEVICES=6 python main_pretrain.py \
+CUDA_VISIBLE_DEVICES=7 python main_pretrain.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
     --batch_size 256 \
