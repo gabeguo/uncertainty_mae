@@ -73,6 +73,16 @@ class Trainer:
         model_without_ddp,
         args
     ) -> None:
+        if args.gan:
+            # do not encode invisible portions!
+            model.dropout_ratio = 1
+            # No gradient on invisible portion (unused)
+            for param in model.invisible_mae.parameters():
+                param.requires_grad = False
+            # No gradient on encoder!
+            for the_block in model.visible_mae.blocks:
+                the_block.requires_grad = False
+            
         self.gpu_id = gpu_id
         self.model = model.to(gpu_id)
         self.data_loader_train = data_loader_train
