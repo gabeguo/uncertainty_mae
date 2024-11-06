@@ -12,8 +12,8 @@ CUDA_VISIBLE_DEVICES=7 python main_pretrain.py \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
     --warmup_epochs 5 \
-    --epochs 25 \
-    --log_freq 5 \
+    --epochs 20 \
+    --log_freq 2 \
     --num_workers 8 \
     --vae \
     --kld_beta 30 \
