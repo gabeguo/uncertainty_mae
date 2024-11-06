@@ -280,6 +280,7 @@ def get_args_parser():
     parser.add_argument('--discriminator_drop_path', type=float, default=0.1, metavar='PCT',
                         help='Drop path rate (default: 0.1)')
     parser.add_argument('--discriminator_global_pool', action='store_true')
+    parser.add_argument('--gan_lambda', type=float, default=1.0)
     parser.set_defaults(global_pool=True)
 
     return parser

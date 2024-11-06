@@ -229,7 +229,7 @@ def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
     inverted_mask = torch.ones_like(mask) - mask
     assert torch.sum(inverted_mask) < torch.sum(mask) # less visible than invisible patches
     recon_loss = netG.module.visible_mae.forward_loss(imgs=gt, pred=patched_fake, mask=inverted_mask)
-    total_loss_G = 0.1 * errG + recon_loss # weight, following https://openaccess.thecvf.com/content_cvpr_2016/papers/Pathak_Context_Encoders_Feature_CVPR_2016_paper.pdf
+    total_loss_G = args.gan_lambda * errG + recon_loss # weight, following https://openaccess.thecvf.com/content_cvpr_2016/papers/Pathak_Context_Encoders_Feature_CVPR_2016_paper.pdf
     # Calculate gradients for G
     # errG.backward()
     backprop_loss(args, loss=total_loss_G, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netG, optimizer=optimizerG, max_norm=max_norm, loss_scaler=loss_scaler)

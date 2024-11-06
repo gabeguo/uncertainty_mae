@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_imagenet_models/11_06_24/gan_full
+output_path=/local/zemel/gzg2104/_imagenet_models/11_06_24/gan_lambda_1
 
 echo "train gan!"
 
@@ -31,4 +31,4 @@ CUDA_VISIBLE_DEVICES=6 python main_pretrain.py \
     --add_default_mask \
     --var 1 \
     --resume /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-799.pth \
-    --gan
+    --gan --gan_lambda 1
