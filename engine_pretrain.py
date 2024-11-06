@@ -43,6 +43,8 @@ def train_one_epoch(model: torch.nn.Module,
         print('log_dir: {}'.format(log_writer.log_dir))
 
     for data_iter_step, the_data in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
+        # if data_iter_step > 300:
+        #     break
         if args.dataset_name in ['imagenet_sketch', 'coco']:
             samples = the_data['image']
         else:
@@ -99,7 +101,7 @@ def train_one_epoch(model: torch.nn.Module,
 
         if args.gan:
             loss = 0
-            errD_real, errD_fake, errG = calc_gan_loss(args, gt=samples, fake=pred, netG=model, netD=netD, optimizerG=optimizerG, optimizerD=optimizerD, device=device, accum_iter=accum_iter, data_iter_step=data_iter_step, max_norm=max_norm, loss_scaler=loss_scaler)
+            errD_real, errD_fake, errG, recon_loss = calc_gan_loss(args, gt=samples, fake=pred, netG=model, netD=netD, optimizerG=optimizerG, optimizerD=optimizerD, device=device, accum_iter=accum_iter, data_iter_step=data_iter_step, max_norm=max_norm, loss_scaler=loss_scaler, mask=mask)
         else:
             loss /= accum_iter
             if args.mixed_precision:
@@ -115,14 +117,13 @@ def train_one_epoch(model: torch.nn.Module,
 
         torch.cuda.synchronize()
 
-        # TODO: log GAN loss
-
         metric_logger.update(loss=loss_value)
         if isinstance(model, UncertaintyMAE) or isinstance(model.module, UncertaintyMAE):
             if args.gan:
                 metric_logger.update(errD_real=errD_real)
                 metric_logger.update(errD_fake=errD_fake)
                 metric_logger.update(errG=errG)
+                metric_logger.update(recon_loss=recon_loss)
             else:
                 metric_logger.update(reconstruction_loss=reconstruction_loss)
                 metric_logger.update(kld_loss=kld_loss)
@@ -146,6 +147,7 @@ def train_one_epoch(model: torch.nn.Module,
                 log_writer.add_scalar('errD_fake', errD_fake, epoch_1000x)
                 log_writer.add_scalar('errD_real', errD_real, epoch_1000x)
                 log_writer.add_scalar('errG', errG, epoch_1000x)
+                log_writer.add_scalar('recon_loss', recon_loss, epoch_1000x)
             else:
                 log_writer.add_scalar('train_loss', loss_value_reduce, epoch_1000x)
                 log_writer.add_scalar('lr', lr, epoch_1000x)
@@ -159,8 +161,12 @@ def train_one_epoch(model: torch.nn.Module,
 
 # TODO: freeze encoder?
 def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
-    accum_iter, data_iter_step, max_norm, loss_scaler):
+    accum_iter, data_iter_step, max_norm, loss_scaler, mask):
+    patched_fake = fake
+    assert mask.shape == patched_fake.shape[:2]
+    assert len(patched_fake.shape) == 3
     fake = netG.module.visible_mae.unpatchify(fake).to(dtype=gt.dtype)
+    assert len(fake.shape) == 4
 
     assert args.gan
 
@@ -210,19 +216,20 @@ def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
     output = netD(fake).view(-1)
     # Calculate G's loss based on this output
     errG = torch.nn.functional.binary_cross_entropy_with_logits(input=output, target=label)
+    # Also get reconstruction loss on observed space
+    inverted_mask = torch.ones_like(mask) - mask
+    assert torch.sum(inverted_mask) < torch.sum(mask) # less visible than invisible patches
+    recon_loss = netG.module.visible_mae.forward_loss(imgs=gt, pred=patched_fake, mask=inverted_mask)
+    total_loss_G = 0.1 * errG + recon_loss # weight, following https://openaccess.thecvf.com/content_cvpr_2016/papers/Pathak_Context_Encoders_Feature_CVPR_2016_paper.pdf
     # Calculate gradients for G
     # errG.backward()
-    backprop_loss(args, loss=errG, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netG, optimizer=optimizerG, max_norm=max_norm, loss_scaler=loss_scaler)
+    backprop_loss(args, loss=total_loss_G, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netG, optimizer=optimizerG, max_norm=max_norm, loss_scaler=loss_scaler)
     D_G_z2 = output.mean().item()
     # Update G
     # optimizerG.step()
     step_optimizer(args=args, optimizer=optimizerG, accum_iter=accum_iter, data_iter_step=data_iter_step)
 
-    ############################
-    # (3) Calculate metrics
-    ###########################
-
-    return errD_real, errD_fake, errG
+    return errD_real, errD_fake, errG, recon_loss
 
 def backprop_loss(args, loss, accum_iter, data_iter_step, model, optimizer, max_norm, loss_scaler):
     loss /= accum_iter
