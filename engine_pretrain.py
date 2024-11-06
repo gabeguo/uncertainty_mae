@@ -11,6 +11,7 @@
 import math
 import sys
 from typing import Iterable
+import wandb
 
 import torch
 
@@ -151,6 +152,14 @@ def train_one_epoch(model: torch.nn.Module,
             else:
                 log_writer.add_scalar('train_loss', loss_value_reduce, epoch_1000x)
                 log_writer.add_scalar('lr', lr, epoch_1000x)
+        # print intermediate results, because GANs train slower (only on main device!)
+        if device == 0 and data_iter_step % print_freq == 0 and args.gan:
+            train_stats = {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+            partial_epoch = epoch + data_iter_step / len(data_loader)
+            the_log_step = epoch * len(data_loader) + data_iter_step
+            log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
+                            'epoch': partial_epoch, 'step': the_log_step}
+            wandb.log(log_stats, step=the_log_step)
 
 
     # gather the stats from all processes
