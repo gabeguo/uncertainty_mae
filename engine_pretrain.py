@@ -173,7 +173,6 @@ def train_one_epoch(model: torch.nn.Module,
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 
-# TODO: freeze encoder?
 def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
     accum_iter, data_iter_step, max_norm, loss_scaler, mask):
     patched_fake = fake
@@ -203,7 +202,7 @@ def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
 
     # Calculate gradients for D in backward pass
     # errD_real.backward()
-    backprop_loss(args, loss=errD_real, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netD, optimizer=optimizerD, max_norm=max_norm, loss_scaler=loss_scaler)
+    backprop_loss(args, loss=args.discriminator_lr_scale * errD_real, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netD, optimizer=optimizerD, max_norm=max_norm, loss_scaler=loss_scaler)
     D_x = output.mean().item()
 
     label.fill_(FAKE_LABEL)
@@ -213,7 +212,7 @@ def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
     errD_fake = torch.nn.functional.binary_cross_entropy_with_logits(input=output, target=label)
     # Calculate the gradients for this batch, accumulated (summed) with previous gradients
     # errD_fake.backward()
-    backprop_loss(args, loss=errD_fake, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netD, optimizer=optimizerD, max_norm=max_norm, loss_scaler=loss_scaler)
+    backprop_loss(args, loss=args.discriminator_lr_scale * errD_fake, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netD, optimizer=optimizerD, max_norm=max_norm, loss_scaler=loss_scaler)
     D_G_z1 = output.mean().item()
     # Compute error of D as sum over the fake and the real batches
     errD = errD_real + errD_fake

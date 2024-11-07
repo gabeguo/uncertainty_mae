@@ -1,4 +1,4 @@
-output_path=/local/zemel/gzg2104/_imagenet_models/11_07_24/occasional_gan
+output_path=/local/zemel/gzg2104/_imagenet_models/11_07_24/occasional_gan_slowerD
 
 echo "train gan!"
 
@@ -31,4 +31,4 @@ CUDA_VISIBLE_DEVICES=7 python main_pretrain.py \
     --add_default_mask \
     --var 1 \
     --resume /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-799.pth \
-    --gan --gan_lambda 0.01
+    --gan --gan_lambda 2.5e-2 --discriminator_lr_scale 0.5
