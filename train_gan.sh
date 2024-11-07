@@ -31,4 +31,4 @@ CUDA_VISIBLE_DEVICES=7 python main_pretrain.py \
     --add_default_mask \
     --var 1 \
     --resume /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-799.pth \
-    --gan --gan_lambda 0.05
+    --gan --gan_lambda 0.01
