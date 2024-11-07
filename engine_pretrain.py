@@ -12,6 +12,7 @@ import math
 import sys
 from typing import Iterable
 import wandb
+import random
 
 import torch
 
@@ -44,6 +45,11 @@ def train_one_epoch(model: torch.nn.Module,
         print('log_dir: {}'.format(log_writer.log_dir))
 
     for data_iter_step, the_data in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
+        do_gan = args.gan and random.random() < args.dropout_ratio # if gan, randomly dropout
+        if do_gan:
+            model.module.dropout_ratio = 1 # use noise
+        else:
+            model.module.dropout_ratio = 0 # use invisible encoder
         # if data_iter_step > 300:
         #     break
         if args.dataset_name in ['imagenet_sketch', 'coco']:
@@ -100,8 +106,7 @@ def train_one_epoch(model: torch.nn.Module,
         # else:
         #     print("Loss is {}, continue training".format(loss_value))
 
-        if args.gan:
-            loss = 0
+        if args.gan and do_gan:
             errD_real, errD_fake, errG, recon_loss = calc_gan_loss(args, gt=samples, fake=pred, netG=model, netD=netD, optimizerG=optimizerG, optimizerD=optimizerD, device=device, accum_iter=accum_iter, data_iter_step=data_iter_step, max_norm=max_norm, loss_scaler=loss_scaler, mask=mask)
         else:
             loss /= accum_iter
@@ -120,7 +125,7 @@ def train_one_epoch(model: torch.nn.Module,
 
         metric_logger.update(loss=loss_value)
         if isinstance(model, UncertaintyMAE) or isinstance(model.module, UncertaintyMAE):
-            if args.gan:
+            if args.gan and do_gan:
                 metric_logger.update(errD_real=errD_real)
                 metric_logger.update(errD_fake=errD_fake)
                 metric_logger.update(errG=errG)
@@ -144,7 +149,7 @@ def train_one_epoch(model: torch.nn.Module,
             This calibrates different curves when batch size changes.
             """
             epoch_1000x = int((data_iter_step / len(data_loader) + epoch) * 1000)
-            if args.gan:
+            if args.gan and do_gan:
                 log_writer.add_scalar('errD_fake', errD_fake, epoch_1000x)
                 log_writer.add_scalar('errD_real', errD_real, epoch_1000x)
                 log_writer.add_scalar('errG', errG, epoch_1000x)

@@ -74,8 +74,6 @@ class Trainer:
         args
     ) -> None:
         if args.gan:
-            # do not encode invisible portions!
-            model.dropout_ratio = 1
             # No gradient on invisible portion (unused)
             for param in model.invisible_mae.parameters():
                 param.requires_grad = False
@@ -100,7 +98,7 @@ class Trainer:
             self.netD = self.netD.to(gpu_id)
             self.netD = DDP(self.netD, device_ids=[gpu_id])
             self.optimizerD = torch.optim.AdamW(self.netD.parameters(), lr=args.lr, betas=(0.9, 0.95), eps=args.eps)
-            self.optimizerG = torch.optim.Adam(self.model.parameters(), lr=args.lr, betas=(0.9, 0.95), eps=args.eps)
+            self.optimizerG = torch.optim.AdamW(self.model.parameters(), lr=args.lr, betas=(0.9, 0.95), eps=args.eps)
             args.start_epoch = 0
         else:
             self.netD = None
