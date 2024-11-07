@@ -107,7 +107,7 @@ def train_one_epoch(model: torch.nn.Module,
         #     print("Loss is {}, continue training".format(loss_value))
 
         if args.gan and do_gan:
-            errD_real, errD_fake, errG, recon_loss = calc_gan_loss(args, gt=samples, fake=pred, netG=model, netD=netD, optimizerG=optimizerG, optimizerD=optimizerD, device=device, accum_iter=accum_iter, data_iter_step=data_iter_step, max_norm=max_norm, loss_scaler=loss_scaler, mask=mask)
+            errD_real, errD_fake, errG, recon_loss_visible = calc_gan_loss(args, gt=samples, fake=pred, netG=model, netD=netD, optimizerG=optimizerG, optimizerD=optimizerD, device=device, accum_iter=accum_iter, data_iter_step=data_iter_step, max_norm=max_norm, loss_scaler=loss_scaler, mask=mask)
         else:
             loss /= accum_iter
             if args.mixed_precision:
@@ -129,7 +129,7 @@ def train_one_epoch(model: torch.nn.Module,
                 metric_logger.update(errD_real=errD_real)
                 metric_logger.update(errD_fake=errD_fake)
                 metric_logger.update(errG=errG)
-                metric_logger.update(recon_loss=recon_loss)
+                metric_logger.update(recon_loss_visible=recon_loss_visible)
             else:
                 metric_logger.update(reconstruction_loss=reconstruction_loss)
                 metric_logger.update(kld_loss=kld_loss)
@@ -153,7 +153,7 @@ def train_one_epoch(model: torch.nn.Module,
                 log_writer.add_scalar('errD_fake', errD_fake, epoch_1000x)
                 log_writer.add_scalar('errD_real', errD_real, epoch_1000x)
                 log_writer.add_scalar('errG', errG, epoch_1000x)
-                log_writer.add_scalar('recon_loss', recon_loss, epoch_1000x)
+                log_writer.add_scalar('recon_loss_visible', recon_loss_visible, epoch_1000x)
             else:
                 log_writer.add_scalar('train_loss', loss_value_reduce, epoch_1000x)
                 log_writer.add_scalar('lr', lr, epoch_1000x)
