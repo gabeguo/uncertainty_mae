@@ -21,6 +21,8 @@ import util.lr_sched as lr_sched
 from util.pos_embed import interpolate_pos_embed
 from uncertainty_mae import UncertaintyMAE
 
+from main_linprobe import set_head
+
 import models_vit
 
 REAL_LABEL = 1.
@@ -219,10 +221,9 @@ def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
         D_G_z1 = output.mean().item()
     # Compute error of D as sum over the fake and the real batches
     errD = errD_real + errD_fake
-    if last_errG < args.errG_threshold:
-        # Update D
-        # optimizerD.step()
-        step_optimizer(args=args, optimizer=optimizerD, accum_iter=accum_iter, data_iter_step=data_iter_step)
+    # Update D
+    # optimizerD.step()
+    step_optimizer(args=args, optimizer=optimizerD, accum_iter=accum_iter, data_iter_step=data_iter_step)
 
     ############################
     # (2) Update G network: maximize log(D(G(z)))
