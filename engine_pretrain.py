@@ -129,8 +129,9 @@ def train_one_epoch(model: torch.nn.Module,
         metric_logger.update(loss=loss_value)
         if isinstance(model, UncertaintyMAE) or isinstance(model.module, UncertaintyMAE):
             if args.gan and do_gan:
-                metric_logger.update(errD_real=errD_real)
-                metric_logger.update(errD_fake=errD_fake)
+                if errD_real is not None and errD_fake is not None:
+                    metric_logger.update(errD_real=errD_real)
+                    metric_logger.update(errD_fake=errD_fake)
                 metric_logger.update(errG=errG)
                 metric_logger.update(recon_loss_visible=recon_loss_visible)
             else:
@@ -153,8 +154,9 @@ def train_one_epoch(model: torch.nn.Module,
             """
             epoch_1000x = int((data_iter_step / len(data_loader) + epoch) * 1000)
             if args.gan and do_gan:
-                log_writer.add_scalar('errD_fake', errD_fake, epoch_1000x)
-                log_writer.add_scalar('errD_real', errD_real, epoch_1000x)
+                if errD_real is not None and errD_fake is not None:
+                    log_writer.add_scalar('errD_fake', errD_fake, epoch_1000x)
+                    log_writer.add_scalar('errD_real', errD_real, epoch_1000x)
                 log_writer.add_scalar('errG', errG, epoch_1000x)
                 log_writer.add_scalar('recon_loss_visible', recon_loss_visible, epoch_1000x)
             else:
@@ -188,42 +190,44 @@ def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
 
     # Thanks https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html
 
-    ############################
-    # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
-    ###########################
-    ## Train with all-real batch
-    netD.zero_grad()
-    # Format batch
-    real_cpu = gt.to(device)
-    b_size = real_cpu.size(0)
-    label = torch.full((b_size,), REAL_LABEL, dtype=torch.float, device=device)
-    # Forward pass real batch through D
-    output = netD(real_cpu).view(-1)
-    # TODO: deal with shapes
-    # Calculate loss on all-real batch
-    errD_real = torch.nn.functional.binary_cross_entropy_with_logits(input=output, target=label)
-
     if last_errG < args.errG_threshold:
+        ############################
+        # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
+        ###########################
+        ## Train with all-real batch
+        netD.zero_grad()
+        # Format batch
+        real_cpu = gt.to(device)
+        b_size = real_cpu.size(0)
+        label = torch.full((b_size,), REAL_LABEL, dtype=torch.float, device=device)
+        # Forward pass real batch through D
+        output = netD(real_cpu).view(-1)
+        # Calculate loss on all-real batch
+        errD_real = torch.nn.functional.binary_cross_entropy_with_logits(input=output, target=label)
         # Calculate gradients for D in backward pass
         # errD_real.backward()
         backprop_loss(args, loss=args.discriminator_lr_scale * errD_real, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netD, optimizer=optimizerD, max_norm=max_norm, loss_scaler=loss_scaler)
         D_x = output.mean().item()
 
-    label.fill_(FAKE_LABEL)
-    # Classify all fake batch with D
-    output = netD(fake.detach()).view(-1)
-    # Calculate D's loss on the all-fake batch
-    errD_fake = torch.nn.functional.binary_cross_entropy_with_logits(input=output, target=label)
-    if last_errG < args.errG_threshold:
+        label.fill_(FAKE_LABEL)
+        # Classify all fake batch with D
+        output = netD(fake.detach()).view(-1)
+        # Calculate D's loss on the all-fake batch
+        errD_fake = torch.nn.functional.binary_cross_entropy_with_logits(input=output, target=label)
         # Calculate the gradients for this batch, accumulated (summed) with previous gradients
         # errD_fake.backward()
         backprop_loss(args, loss=args.discriminator_lr_scale * errD_fake, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netD, optimizer=optimizerD, max_norm=max_norm, loss_scaler=loss_scaler)
         D_G_z1 = output.mean().item()
-    # Compute error of D as sum over the fake and the real batches
-    errD = errD_real + errD_fake
-    # Update D
-    # optimizerD.step()
-    step_optimizer(args=args, optimizer=optimizerD, accum_iter=accum_iter, data_iter_step=data_iter_step)
+
+        # Compute error of D as sum over the fake and the real batches
+        errD = errD_real + errD_fake
+        # Update D
+        # optimizerD.step()
+        step_optimizer(args=args, optimizer=optimizerD, accum_iter=accum_iter, data_iter_step=data_iter_step)
+    else:
+        label = torch.full((fake.shape[0],), REAL_LABEL, dtype=torch.float, device=device)
+        errD_real = None
+        errD_fake = None
 
     ############################
     # (2) Update G network: maximize log(D(G(z)))
