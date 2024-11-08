@@ -44,6 +44,7 @@ def train_one_epoch(model: torch.nn.Module,
     if log_writer is not None:
         print('log_dir: {}'.format(log_writer.log_dir))
 
+    errG = 0
     for data_iter_step, the_data in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
         do_gan = args.gan and random.random() < args.dropout_ratio # if gan, randomly dropout
         if do_gan:
@@ -107,7 +108,7 @@ def train_one_epoch(model: torch.nn.Module,
         #     print("Loss is {}, continue training".format(loss_value))
 
         if args.gan and do_gan:
-            errD_real, errD_fake, errG, recon_loss_visible = calc_gan_loss(args, gt=samples, fake=pred, netG=model, netD=netD, optimizerG=optimizerG, optimizerD=optimizerD, device=device, accum_iter=accum_iter, data_iter_step=data_iter_step, max_norm=max_norm, loss_scaler=loss_scaler, mask=mask)
+            errD_real, errD_fake, errG, recon_loss_visible = calc_gan_loss(args, gt=samples, fake=pred, netG=model, netD=netD, optimizerG=optimizerG, optimizerD=optimizerD, device=device, accum_iter=accum_iter, data_iter_step=data_iter_step, max_norm=max_norm, loss_scaler=loss_scaler, mask=mask, last_errG=errG)
         else:
             loss /= accum_iter
             if args.mixed_precision:
@@ -174,7 +175,7 @@ def train_one_epoch(model: torch.nn.Module,
 
 
 def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
-    accum_iter, data_iter_step, max_norm, loss_scaler, mask):
+    accum_iter, data_iter_step, max_norm, loss_scaler, mask, last_errG):
     patched_fake = fake
     assert mask.shape == patched_fake.shape[:2]
     assert len(patched_fake.shape) == 3
@@ -200,25 +201,28 @@ def calc_gan_loss(args, gt, fake, netG, netD, optimizerG, optimizerD, device,
     # Calculate loss on all-real batch
     errD_real = torch.nn.functional.binary_cross_entropy_with_logits(input=output, target=label)
 
-    # Calculate gradients for D in backward pass
-    # errD_real.backward()
-    backprop_loss(args, loss=args.discriminator_lr_scale * errD_real, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netD, optimizer=optimizerD, max_norm=max_norm, loss_scaler=loss_scaler)
-    D_x = output.mean().item()
+    if last_errG < args.errG_threshold:
+        # Calculate gradients for D in backward pass
+        # errD_real.backward()
+        backprop_loss(args, loss=args.discriminator_lr_scale * errD_real, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netD, optimizer=optimizerD, max_norm=max_norm, loss_scaler=loss_scaler)
+        D_x = output.mean().item()
 
     label.fill_(FAKE_LABEL)
     # Classify all fake batch with D
     output = netD(fake.detach()).view(-1)
     # Calculate D's loss on the all-fake batch
     errD_fake = torch.nn.functional.binary_cross_entropy_with_logits(input=output, target=label)
-    # Calculate the gradients for this batch, accumulated (summed) with previous gradients
-    # errD_fake.backward()
-    backprop_loss(args, loss=args.discriminator_lr_scale * errD_fake, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netD, optimizer=optimizerD, max_norm=max_norm, loss_scaler=loss_scaler)
-    D_G_z1 = output.mean().item()
+    if last_errG < args.errG_threshold:
+        # Calculate the gradients for this batch, accumulated (summed) with previous gradients
+        # errD_fake.backward()
+        backprop_loss(args, loss=args.discriminator_lr_scale * errD_fake, accum_iter=accum_iter, data_iter_step=data_iter_step, model=netD, optimizer=optimizerD, max_norm=max_norm, loss_scaler=loss_scaler)
+        D_G_z1 = output.mean().item()
     # Compute error of D as sum over the fake and the real batches
     errD = errD_real + errD_fake
-    # Update D
-    # optimizerD.step()
-    step_optimizer(args=args, optimizer=optimizerD, accum_iter=accum_iter, data_iter_step=data_iter_step)
+    if last_errG < args.errG_threshold:
+        # Update D
+        # optimizerD.step()
+        step_optimizer(args=args, optimizer=optimizerD, accum_iter=accum_iter, data_iter_step=data_iter_step)
 
     ############################
     # (2) Update G network: maximize log(D(G(z)))

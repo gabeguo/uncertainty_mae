@@ -280,6 +280,7 @@ def get_args_parser():
     parser.add_argument('--discriminator_global_pool', action='store_true')
     parser.add_argument('--gan_lambda', type=float, default=1.0)
     parser.add_argument('--discriminator_lr_scale', type=float, default=1.0)
+    parser.add_argument('--errG_threshold', type=float, help='Only update discriminator if generator loss below this value', default=1.5)
     parser.set_defaults(global_pool=True)
 
     return parser
