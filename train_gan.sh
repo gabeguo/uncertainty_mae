@@ -1,19 +1,19 @@
-output_path=/local/zemel/gzg2104/_imagenet_models/11_07_24/selective_D_update
+output_path=/local/zemel/gzg2104/_imagenet_models/11_08_24/longer_gan
 
 echo "train gan!"
 
-CUDA_VISIBLE_DEVICES=5 python main_pretrain.py \
+CUDA_VISIBLE_DEVICES=6,7 python main_pretrain.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
     --batch_size 256 \
-    --blr 1.5e-5 \
+    --blr 3e-5 \
     --accum_iter 1 \
     --output_dir $output_path \
     --log_dir $output_path \
     --model mae_vit_base_patch16 \
-    --warmup_epochs 3 \
-    --epochs 15 \
-    --log_freq 1 \
+    --warmup_epochs 5 \
+    --epochs 50 \
+    --log_freq 2 \
     --num_workers 8 \
     --vae \
     --kld_beta 30 \
@@ -34,4 +34,4 @@ CUDA_VISIBLE_DEVICES=5 python main_pretrain.py \
     --gan \
     --gan_lambda 2.5e-2 \
     --discriminator_lr_scale 1 \
-    --errG_threshold 1.5
+    --errG_threshold 20
