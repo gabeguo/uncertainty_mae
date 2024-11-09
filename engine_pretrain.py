@@ -62,6 +62,9 @@ def train_one_epoch(model: torch.nn.Module,
         # we use a per iteration (instead of per epoch) lr scheduler
         if data_iter_step % accum_iter == 0:
             lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, args)
+            if args.gan:
+                for the_opt in [optimizerD, optimizerG]:
+                    lr_sched.adjust_learning_rate(the_opt, data_iter_step / len(data_loader) + epoch, args)
 
         samples = samples.to(device, non_blocking=True)
 
@@ -134,6 +137,8 @@ def train_one_epoch(model: torch.nn.Module,
                     metric_logger.update(errD_fake=errD_fake)
                 metric_logger.update(errG=errG)
                 metric_logger.update(recon_loss_visible=recon_loss_visible)
+                metric_logger.update(lr_G=optimizerG.param_groups[0]["lr"])
+                metric_logger.update(lr_D=optimizerD.param_groups[0]["lr"])
             else:
                 metric_logger.update(reconstruction_loss=reconstruction_loss)
                 metric_logger.update(kld_loss=kld_loss)
