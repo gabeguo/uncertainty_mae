@@ -2,7 +2,7 @@ output_path=/local/zemel/gzg2104/_imagenet_models/11_08_24/longer_gan
 
 echo "train gan!"
 
-CUDA_VISIBLE_DEVICES=6,7 python main_pretrain.py \
+CUDA_VISIBLE_DEVICES=7 python main_pretrain.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
     --batch_size 256 \
@@ -26,7 +26,7 @@ CUDA_VISIBLE_DEVICES=6,7 python main_pretrain.py \
     --mixed_precision \
     --wandb_project imagenet_hippo \
     --disable_zero_conv \
-    --master_port 12356 \
+    --master_port 12355 \
     --object_mask \
     --add_default_mask \
     --var 1 \
