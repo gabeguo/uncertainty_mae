@@ -1,8 +1,8 @@
-output_path=/local/zemel/gzg2104/_imagenet_models/11_08_24/longer_gan
+output_path=/local/zemel/gzg2104/_imagenet_models/11_10_24/gan_lambda_0_1
 
 echo "train gan!"
 
-CUDA_VISIBLE_DEVICES=7 python main_pretrain.py \
+CUDA_VISIBLE_DEVICES=6 python main_pretrain.py \
     --dataset_name imagenet \
     --data_path /local/zemel/gzg2104/datasets/imagenet \
     --batch_size 256 \
@@ -32,6 +32,6 @@ CUDA_VISIBLE_DEVICES=7 python main_pretrain.py \
     --var 1 \
     --resume /local/zemel/gzg2104/_imagenet_models/08_02_24/revertSmallBatch/checkpoint-799.pth \
     --gan \
-    --gan_lambda 2.5e-2 \
+    --gan_lambda 0.1 \
     --discriminator_lr_scale 1 \
     --errG_threshold 20
